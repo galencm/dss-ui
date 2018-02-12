@@ -117,15 +117,26 @@ class ClickableImage(Image):
             self.geometry = []
             self.clear_grid()
 
-    def on_touch_up(self, touch):
-        if touch.button == 'left':
-            self.draw_grid_click(touch.x, touch.y)
-        elif touch.button == 'right':
-            self.draw_grid_click_line(touch.x, touch.y, "x")
-        elif touch.button == 'middle':
-            self.draw_grid_click_line(touch.x, touch.y, "y")
+    def on_touch_down(self, touch):
+        if self.collide_point(*touch.pos):
+            touch.grab(self)
+            return True
 
-        # clear all selected
+    def on_touch_up(self, touch):
+
+        if touch.grab_current is self:
+            if touch.button == 'right':
+                # choose an selection / deselection axis
+                # by using the greater delta of x or y
+                if abs(touch.dsx) > abs(touch.dsy):
+                    self.draw_grid_click_line(touch.x, touch.y, "x")
+                elif abs(touch.dsy) > abs(touch.dsx):
+                    self.draw_grid_click_line(touch.x, touch.y, "y")
+            elif touch.button == 'left':
+                self.draw_grid_click(touch.x, touch.y)
+
+            touch.ungrab(self)
+            return True
 
             # p = touch.pos 
             # o = touch.opos 
