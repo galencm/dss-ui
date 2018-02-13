@@ -122,9 +122,22 @@ class ClickableImage(Image):
         self.cols = 0
         self.row_spacing = 100
         self.col_spacing = 100
+        self.offset_x = 0
+        self.offset_y = 0
+        self.offset_top = 0
         self.geometry = []
         self.app = None
+        self.resized = False
         super(ClickableImage, self).__init__(**kwargs)
+
+    def resize_window(self, *args):
+        # only resize once...
+        if self.resized is False:
+            w, h = self.norm_image_size
+            w = int(w)
+            h = int(h)
+            Window.size = w * 2, h
+            self.resized = True
 
     def clear_grid(self):
         self.canvas.remove_group('selections')
@@ -140,29 +153,46 @@ class ClickableImage(Image):
                     for x, y, w, h in [group.bounding_rectangle]:
                         Rectangle(pos=(x,y), size=(w, h), group=group.name)
                 except Exception as ex:
-                    # if None is returned
+                    # None may be returned if no regions in group
                     pass
 
     def draw_grid(self):
-        w, h = self.texture_size
-        self.canvas.remove_group('grid')
-        if self.cols is None:
-            self.col_spacing = w
+        self.resize_window()
 
-        if self.rows is None:
-            self.row_spacing = w
-        # this will clear image too
-        # self.canvas.clear()
+        w,h = self.norm_image_size
+        # normalized image floats in boxlayout so for a
+        # nonsquare image there will be padding around
+        # image, calculate amount and use as offset for
+        # drawing grid
+
+        self.offset_x = int((self.parent.size[0] - self.norm_image_size[0]) / 2)
+        self.offset_y = int((self.parent.size[0] - self.norm_image_size[1]) / 2)
+        # [750.0, 516.0] [1000, 750] [750.0, 516.0] (688.0, 516.0)
+        print(self.parent.size, self.texture_size, self.size, self.norm_image_size)
+        print(self.offset_x, self.offset_y,)
+        self.offset_top = int(abs(self.parent.top - Window.size[1]))
+        print("??", self.offset_top)
+        w = int(w)
+        h = int(h)
+        self.canvas.remove_group('grid')
+
         with self.canvas:
             Color(128, 128, 128, 0.5)
 
             if self.cols is not None:
-                for col in range(0, h, self.col_spacing):
-                    Line(points=[col, 0, col, h], width=2, group='grid')
+                for col in range(0, w, self.col_spacing):
+                    print(self.offset_y, self.offset_top)
+                    # for line 0 coordinate is bottom of screen?
+                    # h (ie entire height) is top...
+                    Line(points=[col + self.offset_x, 0, col + self.offset_x, h], width=1, group='grid')
+                    # debug from 0,0
+                    #Line(points=[0, 0, col + self.offset_x, h + self.offset_y + self.offset_top], width=1, group='grid')
 
             if self.rows is not None:
-                for row in range(0, w, self.row_spacing):
-                    Line(points=[0, row, w, row], width=2, group='grid')
+                for row in range(0, h, self.row_spacing):
+                    Line(points=[0 + self.offset_x, row, w + self.offset_x, row], width=1, group='grid')
+                    # debug from 0,0
+                    #Line(points=[0, 0, w + self.offset_x, row], width=1, group='grid')
 
     def draw_geometry(self):
         self.clear_grid()
@@ -202,8 +232,9 @@ class ClickableImage(Image):
         dotsize = 10
         with self.canvas:
             Ellipse(pos=(x - (dotsize / 2), y - (dotsize / 2)), size=(dotsize, dotsize), group='clicks')
-        for col in range(0, w, self.col_spacing):
-            for row in range(0, h, self.row_spacing):
+        # 0,0 is lower left corner
+        for col in range(0 + self.offset_x, w + self.offset_x, self.col_spacing):
+            for row in range(0, h + self.offset_y + self.offset_top, self.row_spacing):
                 if col < x and x < col + self.col_spacing:
                     if row < y and y < row + self.row_spacing:
                         rect = (col, row, self.col_spacing, self.row_spacing)
@@ -273,10 +304,12 @@ class ClickableImage(Image):
         # this will cause problems typing
         # check that no focus on text input 
         # widgets
+        #
+        # something is not updating correctly
+        # spacebar must be pressed twice on
+        # start
         if keycode[1] == "spacebar":
             self.geometry = []
-            # self.row_spacing = 100
-            # self.col_spacing = 100
             self.clear_grid()
             self.draw_groups()
         elif keycode[1] == "down":
@@ -289,7 +322,6 @@ class ClickableImage(Image):
         #     self.col_spacing -= 10
         # elif keycode[1] == "left":
         #     self.col_spacing += 10
-
         self.draw_grid()
 
     def on_touch_down(self, touch):
@@ -461,13 +493,18 @@ class ChecklistApp(App):
                              keep_ratio=True)
         img.texture = CoreImage(data, ext="jpg", keep_data=True).texture
         img.app = self
-        img.draw_grid()
 
         tab = TabItem(text="overview",root=root)
         root.add_widget(tab)
 
         tab = TabItem(text="image",root=root)
-        tab.add_widget(img)
+        tab_container = BoxLayout(orientation='horizontal')
+        img_container = BoxLayout(orientation='horizontal')
+        categories_container = BoxLayout(orientation='horizontal')
+        img_container.add_widget(img)
+        tab_container.add_widget(img_container)
+        tab_container.add_widget(categories_container)
+        tab.add_widget(tab_container)
         tab.keybindings = img
         root.add_widget(tab)
 
