@@ -140,11 +140,11 @@ class ClickableImage(Image):
             for c in range(0, h, self.col_spacing):
                 self.draw_grid_click(x, c + 2)
 
-    def handle_keybinds(self, key):
+    def handle_keybinds(self, keycode, modifiers):
         # this will cause problems typing
         # check that no focus on text input 
         # widgets
-        if key == "spacebar":
+        if keycode[1] == "spacebar":
             self.geometry = []
             self.clear_grid()
 
@@ -263,15 +263,15 @@ class TabItem(TabbedPanelItem):
                     except IndexError as ex:
                         self.root.switch_to(self.parent.children[0], do_scroll=True)
                         break
-        elif keycode[1] == 'spacebar':
+        elif keycode[1] == 'c' and 'ctrl' in modifiers:
+            App.get_running_app().stop()
+        else:
             for i, c in enumerate(self.parent.children):
                 if c == self.root.current_tab:
                     try:
-                        c.keybindings.handle_keybinds("spacebar")
+                        c.keybindings.handle_keybinds(keycode, modifiers)
                     except Exception as ex:
                         print(ex)
-        elif keycode[1] == 'c' and 'ctrl' in modifiers:
-            App.get_running_app().stop()
 
 class TabbedPanelContainer(TabbedPanel):
     def __init__(self, **kwargs):
