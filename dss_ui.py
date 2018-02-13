@@ -52,6 +52,7 @@ class ClickableImage(Image):
 
     def draw_grid(self):
         w, h = self.texture_size
+        self.canvas.remove_group('grid')
         if self.cols is None:
             self.col_spacing = w
 
@@ -64,11 +65,11 @@ class ClickableImage(Image):
 
             if self.cols is not None:
                 for col in range(0, h, self.col_spacing):
-                    Line(points=[col, 0, col, h], width=2)
+                    Line(points=[col, 0, col, h], width=2, group='grid')
 
             if self.rows is not None:
                 for row in range(0, w, self.row_spacing):
-                    Line(points=[0, row, w, row], width=2)
+                    Line(points=[0, row, w, row], width=2, group='grid')
 
     def draw_geometry(self):
         self.clear_grid()
@@ -146,7 +147,21 @@ class ClickableImage(Image):
         # widgets
         if keycode[1] == "spacebar":
             self.geometry = []
+            # self.row_spacing = 100
+            # self.col_spacing = 100
             self.clear_grid()
+        elif keycode[1] == "down":
+            self.row_spacing += 10
+            self.col_spacing += 10
+        elif keycode[1] == "up":
+            self.row_spacing -= 10
+            self.col_spacing -= 10
+        # elif keycode[1] == "right":
+        #     self.col_spacing -= 10
+        # elif keycode[1] == "left":
+        #     self.col_spacing += 10
+
+        self.draw_grid()
 
     def on_touch_down(self, touch):
         if self.collide_point(*touch.pos):
