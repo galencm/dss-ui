@@ -129,9 +129,9 @@ class GroupItem(BoxLayout):
             self.group_region.text = str(self.group.bounding_rectangle)
             self.group_color.color = self.group.color.rgb
         else:
-            group_color = Button(text= "@@@", color=self.group.color.rgb)
+            group_color = Button(text= "@@@", font_size=20, color=self.group.color.rgb)
             group_color.bind(on_press=self.pick_color)
-            group_name = TextInput(text=self.group.name, multiline=False)
+            group_name = TextInput(text=self.group.name, multiline=False, font_size=20, background_color=(.6, .6, .6, 1))
             group_region = Label(text=str(self.group.bounding_rectangle))
             group_name.bind(on_text_validate=functools.partial(self.on_text_enter))
             self.add_widget(group_color)
