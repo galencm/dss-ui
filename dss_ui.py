@@ -99,7 +99,37 @@ class ClickableImage(Image):
                             self.geometry.remove(rect)
                             self.draw_geometry()
 
-    def draw_grid_click_line(self, x, y, axis):
+    def draw_grid_click_segment(self, x, y, x2, y2, axis):
+        w, h = self.texture_size
+        # some squares are not being correctly clicked
+        x = int(round(x))
+        x2 = int(round(x2))
+        y = int(round(y))
+        y2 = int(round(y2))
+
+        if axis == "x":
+            if x > x2:
+                start = x2
+                end = x
+            else:
+                start = x
+                end = x2
+            for c in range(start, end, self.col_spacing):
+                offset = 0
+                self.draw_grid_click(c + offset, y)
+
+        if axis == "y":
+            if y > y2:
+                start = y2
+                end = y
+            else:
+                start = y
+                end = y2
+            for c in range(start, end, self.row_spacing):
+                offset = 0
+                self.draw_grid_click(x, c + offset)
+
+    def draw_grid_click_line(self, x, y, axis, end_x=None, end_y=None):
         w, h = self.texture_size
 
         if axis == "x":
@@ -135,6 +165,12 @@ class ClickableImage(Image):
                     self.draw_grid_click_line(touch.x, touch.y, "y")
             elif touch.button == 'left':
                 self.draw_grid_click(touch.x, touch.y)
+            elif touch.button == 'middle':
+                if abs(touch.dsx) > abs(touch.dsy):
+                    self.draw_grid_click_segment(touch.opos[0], touch.opos[1], touch.x, touch.y, "x")
+                elif abs(touch.dsy) > abs(touch.dsx):
+                    self.draw_grid_click_segment(touch.opos[0], touch.opos[1], touch.x, touch.y, "y")
+
 
             touch.ungrab(self)
             return True
