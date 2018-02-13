@@ -48,6 +48,7 @@ class ClickableImage(Image):
 
     def clear_grid(self):
         self.canvas.remove_group('selections')
+        self.canvas.remove_group('clicks')
 
     def draw_grid(self):
         w, h = self.texture_size
@@ -84,7 +85,7 @@ class ClickableImage(Image):
         Color(128, 128, 128, 0.5)
         dotsize = 10
         with self.canvas:
-            Ellipse(pos=(x - (dotsize / 2), y - (dotsize / 2)), size=(dotsize, dotsize))
+            Ellipse(pos=(x - (dotsize / 2), y - (dotsize / 2)), size=(dotsize, dotsize), group='clicks')
         for col in range(0, w, self.col_spacing):
             for row in range(0, h, self.row_spacing):
                 if col < x and x < col + self.col_spacing:
