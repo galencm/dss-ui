@@ -133,7 +133,7 @@ class ClickableImage(Image):
         w, h = self.texture_size
 
         if axis == "x":
-            for c in range(0, h, self.row_spacing):
+            for c in range(0, w, self.row_spacing):
                 self.draw_grid_click(c + 2, y)
 
         if axis == "y":
