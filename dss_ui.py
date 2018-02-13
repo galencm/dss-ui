@@ -22,11 +22,97 @@ from kivy.uix.accordion import Accordion, AccordionItem
 from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
 from PIL import Image as PImage
 import redis
+import attr
+import uuid
+import colour
 from ma_cli import data_models
 
 r_ip, r_port = data_models.service_connection()
 binary_r = redis.StrictRedis(host=r_ip, port=r_port)
 r = redis.StrictRedis(host=r_ip, port=r_port, decode_responses=True)
+
+@attr.s
+class Group(object):
+    regions = attr.ib(default=attr.Factory(list))
+    color = attr.ib(default=None)
+    name = attr.ib(default="")
+
+    @property
+    def x(self):
+        return self.region_rectangle()[0]
+
+    @property
+    def x2(self):
+        return self.region_rectangle()[2]
+
+    @property
+    def y(self):
+        return self.region_rectangle()[1]
+
+    @property
+    def y2(self):
+        return self.region_rectangle()[3]
+
+    @property
+    def width(self):
+        return self.x2 - self.x
+
+    @property
+    def height(self):
+        return self.y2 - self.y
+    
+    @property
+    def bounding_rectangle(self):
+        #x y w h
+        rect = self.region_rectangle()
+        try:
+            rect[2] = rect[2] - rect[0]
+            rect[3] = rect[3] - rect[1]
+            return rect
+        except TypeError:
+            return None
+
+    def bounding_contains_point(self, x, y):
+        contains_x = False
+        contains_y = False
+        rect = self.region_rectangle()
+        try:
+            if rect[0] < x < rect[2]:
+                contains_x = True
+
+            if rect[1] < y <rect[3]:
+                contains_y = True
+        except TypeError:
+            pass
+
+        if contains_x and contains_y:
+            return True
+        else:
+            return False
+
+    def region_rectangle(self):
+        """Return bounding rectangle of
+        all regions"""
+        min_x = None
+        min_y = None
+        max_x = None
+        max_y = None
+
+        for region in self.regions:
+            if min_x is None or region[0] < min_x:
+                min_x = region[0]
+
+            if min_y is None or region[1] < min_y:
+                min_y = region[1]
+
+            if max_x is None or region[2] > max_x:
+                max_x = region[2]
+
+            if max_y is None or region[3] > max_y:
+                max_y = region[3]
+
+        return [min_x, min_y, max_x, max_y]
+
 
 Config.read('config.ini')
 
@@ -37,18 +123,25 @@ class ClickableImage(Image):
         self.row_spacing = 100
         self.col_spacing = 100
         self.geometry = []
-        self.selected = InstructionGroup()
+        self.app = None
         super(ClickableImage, self).__init__(**kwargs)
-
-    def draw_rows(self):
-        pass
-
-    def draw_cols(self):
-        pass
 
     def clear_grid(self):
         self.canvas.remove_group('selections')
         self.canvas.remove_group('clicks')
+
+    def draw_groups(self):
+        with self.canvas:
+            for group in self.app.groups:
+                self.canvas.remove_group(group.name)
+                # Color(128, 128, 128, 0.5)
+                Color(*group.color.rgb, 0.5)
+                try:
+                    for x, y, w, h in [group.bounding_rectangle]:
+                        Rectangle(pos=(x,y), size=(w, h), group=group.name)
+                except Exception as ex:
+                    # if None is returned
+                    pass
 
     def draw_grid(self):
         w, h = self.texture_size
@@ -82,7 +175,29 @@ class ClickableImage(Image):
 
     def draw_grid_click(self, x, y):
         w, h = self.texture_size
-        #with self.canvas:
+        group = None
+        # check in 'plus' pattern for adding
+        # to existing group
+        #       [X]
+        #    [X][X][X]
+        #       [X]
+        for g in self.app.groups:
+            if g.bounding_contains_point(x, y):
+                group = g
+            elif g.bounding_contains_point(x + self.col_spacing, y):
+                group = g
+            elif g.bounding_contains_point(x - self.col_spacing, y):
+                group = g
+            elif g.bounding_contains_point(x, y + self.row_spacing):
+                group = g
+            elif g.bounding_contains_point(x, y - self.row_spacing):
+                group = g
+
+        if group is None:
+            group = Group()
+            group.name = str(uuid.uuid4())
+            group.color = colour.Color(pick_for=group)
+
         Color(128, 128, 128, 0.5)
         dotsize = 10
         with self.canvas:
@@ -92,13 +207,26 @@ class ClickableImage(Image):
                 if col < x and x < col + self.col_spacing:
                     if row < y and y < row + self.row_spacing:
                         rect = (col, row, self.col_spacing, self.row_spacing)
+                        rect_points = (col, row, col + self.col_spacing, row + self.row_spacing)
                         if rect not in self.geometry:
                             with self.canvas:
                                 Rectangle(pos=(col,row), size=(self.col_spacing, self.row_spacing), group="selections")
                             self.geometry.append(rect)
+                            #x,y,w,h
+                            if not rect_points in group.regions:
+                                group.regions.append(rect_points)
                         else:
                             self.geometry.remove(rect)
+                            try:
+                                group.regions.remove(rect_points)
+                            except ValueError as ex:
+                                print(ex)
+                                pass
                             self.draw_geometry()
+        if group not in self.app.groups:
+            self.app.groups.append(group)
+
+        self.draw_groups()
 
     def draw_grid_click_segment(self, x, y, x2, y2, axis):
         w, h = self.texture_size
@@ -150,6 +278,7 @@ class ClickableImage(Image):
             # self.row_spacing = 100
             # self.col_spacing = 100
             self.clear_grid()
+            self.draw_groups()
         elif keycode[1] == "down":
             self.row_spacing += 10
             self.col_spacing += 10
@@ -295,6 +424,7 @@ class TabbedPanelContainer(TabbedPanel):
 class ChecklistApp(App):
     def __init__(self, *args,**kwargs):
         self.resize_size = 1000
+        self.groups = []
         super(ChecklistApp, self).__init__()
 
     def build(self):
@@ -330,6 +460,7 @@ class ChecklistApp(App):
                              allow_stretch=True,
                              keep_ratio=True)
         img.texture = CoreImage(data, ext="jpg", keep_data=True).texture
+        img.app = self
         img.draw_grid()
 
         tab = TabItem(text="overview",root=root)
