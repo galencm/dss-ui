@@ -6,6 +6,7 @@
 
 import random
 import io
+import functools
 from kivy.app import App
 from kivy.uix.image import Image
 from kivy.core.image import Image as CoreImage
@@ -16,6 +17,8 @@ from kivy.graphics import Color, Line, Ellipse, InstructionGroup
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.button import Button
+from kivy.uix.colorpicker import ColorPicker
+from kivy.uix.popup import Popup
 from kivy.clock import Clock
 from kivy.uix.textinput import TextInput
 from kivy.uix.accordion import Accordion, AccordionItem
@@ -30,6 +33,8 @@ from ma_cli import data_models
 r_ip, r_port = data_models.service_connection()
 binary_r = redis.StrictRedis(host=r_ip, port=r_port)
 r = redis.StrictRedis(host=r_ip, port=r_port, decode_responses=True)
+
+Config.read('config.ini')
 
 @attr.s
 class Group(object):
@@ -113,8 +118,67 @@ class Group(object):
 
         return [min_x, min_y, max_x, max_y]
 
+class GroupItem(BoxLayout):
+    def __init__(self,**kwargs):
+        self.group = None
+        self.initial_update = False
+        super(GroupItem, self).__init__(**kwargs)
 
-Config.read('config.ini')
+    def update_group_display(self):
+        if self.initial_update:
+            self.group_region.text = str(self.group.bounding_rectangle)
+            self.group_color.color = self.group.color.rgb
+        else:
+            group_color = Button(text= "@@@", color=self.group.color.rgb)
+            group_color.bind(on_press=self.pick_color)
+            group_name = TextInput(text=self.group.name, multiline=False)
+            group_region = Label(text=str(self.group.bounding_rectangle))
+            group_name.bind(on_text_validate=functools.partial(self.on_text_enter))
+            self.add_widget(group_color)
+            self.add_widget(group_name)
+            self.add_widget(group_region)
+            self.group_region = group_region
+            self.group_color = group_color
+            self.initial_update = True
+
+    def pick_color(self,*args):
+        color_picker = ColorPickerPopup()
+        color_picker.content.bind(color=self.on_color)
+        color_picker.open()
+
+    def on_color(self, instance, *args):
+        self.group.color.rgb = instance.color[:3]
+        self.update_group_display()
+
+    def on_text_enter(self, instance, *args):
+        print(instance.text, args)
+        self.group.name = instance.text
+
+class GroupContainer(BoxLayout):
+    def __init__(self, **kwargs):
+        super(GroupContainer, self).__init__(**kwargs)
+
+    def update_group(self, name):
+        for group in self.children:
+            try:
+                if group.group.name == name:
+                    group.update_group_display()
+            except AttributeError:
+                pass
+
+    def add_group(self, group):
+        g = GroupItem()
+        g.group = group
+        g.update_group_display()
+        self.add_widget(g)
+
+    def remove_group(self, name):
+        for group in self.children:
+            try:
+                if group.group.name == name:
+                    self.remove_widge(group)
+            except AttributeError:
+                pass
 
 class ClickableImage(Image):
     def __init__(self, **kwargs):
@@ -168,10 +232,9 @@ class ClickableImage(Image):
         self.offset_x = int((self.parent.size[0] - self.norm_image_size[0]) / 2)
         self.offset_y = int((self.parent.size[0] - self.norm_image_size[1]) / 2)
         # [750.0, 516.0] [1000, 750] [750.0, 516.0] (688.0, 516.0)
-        print(self.parent.size, self.texture_size, self.size, self.norm_image_size)
-        print(self.offset_x, self.offset_y,)
+        # print(self.parent.size, self.texture_size, self.size, self.norm_image_size)
+        # print(self.offset_x, self.offset_y,)
         self.offset_top = int(abs(self.parent.top - Window.size[1]))
-        print("??", self.offset_top)
         w = int(w)
         h = int(h)
         self.canvas.remove_group('grid')
@@ -181,7 +244,6 @@ class ClickableImage(Image):
 
             if self.cols is not None:
                 for col in range(0, w, self.col_spacing):
-                    print(self.offset_y, self.offset_top)
                     # for line 0 coordinate is bottom of screen?
                     # h (ie entire height) is top...
                     Line(points=[col + self.offset_x, 0, col + self.offset_x, h], width=1, group='grid')
@@ -227,6 +289,7 @@ class ClickableImage(Image):
             group = Group()
             group.name = str(uuid.uuid4())
             group.color = colour.Color(pick_for=group)
+            self.group_container.add_group(group)
 
         Color(128, 128, 128, 0.5)
         dotsize = 10
@@ -257,6 +320,7 @@ class ClickableImage(Image):
         if group not in self.app.groups:
             self.app.groups.append(group)
 
+        self.group_container.update_group(group.name)
         self.draw_groups()
 
     def draw_grid_click_segment(self, x, y, x2, y2, axis):
@@ -453,6 +517,13 @@ class TabbedPanelContainer(TabbedPanel):
     def __init__(self, **kwargs):
         super(TabbedPanelContainer, self).__init__()
 
+class ColorPickerPopup(Popup):
+    def __init__(self, **kwargs):
+        self.title = "foo"
+        self.content = ColorPicker()
+        self.size_hint = (.5,.5)
+        super(ColorPickerPopup, self).__init__()
+
 class ChecklistApp(App):
     def __init__(self, *args,**kwargs):
         self.resize_size = 1000
@@ -501,6 +572,9 @@ class ChecklistApp(App):
         tab_container = BoxLayout(orientation='horizontal')
         img_container = BoxLayout(orientation='horizontal')
         categories_container = BoxLayout(orientation='horizontal')
+        gc = GroupContainer(orientation='vertical')
+        img.group_container = gc
+        categories_container.add_widget(gc)
         img_container.add_widget(img)
         tab_container.add_widget(img_container)
         tab_container.add_widget(categories_container)
