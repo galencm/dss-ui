@@ -7,6 +7,7 @@
 import random
 import io
 import functools
+import subprocess
 from kivy.app import App
 from kivy.lang import Builder
 from kivy.uix.image import Image
@@ -19,6 +20,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.colorpicker import ColorPicker
+from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.popup import Popup
 from kivy.clock import Clock
 from kivy.uix.textinput import TextInput
@@ -622,17 +624,47 @@ class ColorPickerPopup(Popup):
         self.size_hint = (.5,.5)
         super(ColorPickerPopup, self).__init__()
 
-
+class FileChooserPopup(Popup):
+    def __init__(self, **kwargs):
+        self.title = "choose file"
+        self.content = FileChooserListView()
+        self.size_hint = (.5,.5)
+        super(FileChooserPopup, self).__init__()
 
 class ChecklistApp(App):
     def __init__(self, *args,**kwargs):
         self.resize_size = 1000
+        self.thumbnail_height = 400
+        self.thumbnail_width = 400
         self.groups = []
         super(ChecklistApp, self).__init__()
 
-    def glworb_binary(self):
+    def bytes_binary(self, data):
+        # almost same code as bimg_resized
+        new_size = self.resize_size
+        f = io.BytesIO()
+        f = io.BytesIO(data)
+        img = PImage.open(f)
+        img.thumbnail((new_size, new_size), PImage.ANTIALIAS)
+        extension = img.format
+        file = io.BytesIO()
+        img.save(file, extension)
+        img.close()
+        file.seek(0)
+
+        img = ClickableImage(
+                             allow_stretch=True,
+                             keep_ratio=True)
+        img.texture = CoreImage(file, ext="jpg", keep_data=True).texture
+        img.app = self
+        return img
+
+    def glworb_binary(self, glworb=None):
         binary_keys = ["binary_key", "binary", "image_binary_key"]
-        glworb = random.choice(data_models.enumerate_data(pattern="glworb:*"))
+
+        if glworb is None:
+            glworb = random.choice(data_models.enumerate_data(pattern="glworb:*"))
+
         for bkey in binary_keys:
             data = r.hget(glworb, bkey)
             if data:
@@ -661,13 +693,78 @@ class ChecklistApp(App):
                              keep_ratio=True)
         img.texture = CoreImage(data, ext="jpg", keep_data=True).texture
         img.app = self
-        print(">",img.size)
         return img
+
+    def pick_file(self,*args):
+        file_picker = FileChooserPopup()
+        #file_picker.content.bind(color=self.on_color)
+        file_picker.open()
+
+    def add_binaries(self, add_method, output_label, display_widget, *args):
+        tmp_output_filename = "/tmp/slurped.jpg"
+        process_feedback = ""
+
+        def file_bytes(filename):
+            contents = io.BytesIO()
+            try:
+                with open(filename, "rb") as f:
+                    contents = io.BytesIO(f.read())
+                return contents.getvalue()
+            except FileNotFoundError:
+                return b''
+
+        if add_method == "slurp":
+            output = subprocess.check_output(["ma-throw", "slurp"]).decode()
+            process_feedback = output
+            if output:
+                glworbs = [s for s in process_feedback.split("'") if "glworb:" in s]
+                for g in glworbs:
+                    img = self.glworb_binary(glworb=g)
+                    display_widget.add_widget(img)
+                    img.width = self.thumbnail_width
+                    img.height = self.thumbnail_height
+                    display_widget.width += img.width
+                process_feedback = " ".join(glworbs)
+        elif add_method == "webcam":
+            addr = "/dev/video0"
+            subprocess.call(["fswebcam",
+                             "--no-banner",
+                             "--save",
+                             tmp_output_filename,
+                             "-d",
+                             addr,
+                             "-r",
+                             "1280x960"])
+            contents = file_bytes(tmp_output_filename)
+            if contents:
+                process_feedback = tmp_output_filename
+                img = self.bytes_binary(contents)
+                display_widget.add_widget(img)
+                img.width = self.thumbnail_width
+                img.height = self.thumbnail_height
+                display_widget.width += img.width
+        elif add_method == "gphoto2":
+            output = subprocess.check_output(["gphoto2",
+                                     "--capture-image-and-download",
+                                     "--filename={}".format(tmp_output_filename),
+                                     "--force-overwrite"]).decode()
+            contents = file_bytes(tmp_output_filename)
+            if contents:
+                process_feedback = tmp_output_filename
+                img = self.bytes_binary(contents)
+                display_widget.add_widget(img)
+                img.width = self.thumbnail_width
+                img.height = self.thumbnail_height
+                display_widget.width += img.width
+
+        output_label.text = str(process_feedback)
 
     def build(self):
 
         root = TabbedPanel(do_default_tab=False)
         root.tab_width = 200
+
+        thumbnail_container = ScatterTextWidget()
 
         tab = TabItem(text="overview",root=root)
         root.add_widget(tab)
@@ -678,11 +775,51 @@ class ChecklistApp(App):
         lower_container = BoxLayout(orientation='horizontal', height=800, size_hint=(1,1))
 
         img_container = BoxLayout(orientation='horizontal')
-        categories_container = BoxLayout(orientation='horizontal')
+        categories_container = BoxLayout(orientation='vertical')
+
+        groups_container = BoxLayout(orientation='horizontal')
+        files_container = BoxLayout(orientation='horizontal')
         gc = GroupContainer(orientation='vertical')
         img = self.glworb_binary()
         img.group_container = gc
-        categories_container.add_widget(gc)
+        add_binary_output = Label(text="",font_size=20)
+        slurp_button = Button(text="slurp (ma)", font_size=20)
+        webcam_button = Button(text="webcam (shell)", font_size=20)
+        gphoto2_button = Button(text="gphoto2 (shell)", font_size=20)
+
+        slurp_button.bind(on_press=lambda x: self.add_binaries("slurp",
+                                                               add_binary_output,
+                                                               thumbnail_container.image_grid))
+        webcam_button.bind(on_press=lambda x: self.add_binaries("webcam",
+                                                               add_binary_output,
+                                                               thumbnail_container.image_grid))
+        gphoto2_button.bind(on_press=lambda x: self.add_binaries("gphoto2",
+                                                               add_binary_output,
+                                                               thumbnail_container.image_grid))
+        button_container = BoxLayout(orientation='vertical')
+
+        #actions_container.add_widget(slurp_button)
+        files_container.add_widget(FileChooserListView())
+        groups_container.add_widget(gc)
+
+        sub_panel = TabbedPanel(do_default_tab=False)
+        categories_container.add_widget(sub_panel)
+        sub_tab = TabbedPanelItem(text="groups")
+        sub_tab.add_widget(groups_container)
+        sub_panel.add_widget(sub_tab)
+
+        sub_tab = TabbedPanelItem(text="files")
+        sub_tab.add_widget(files_container)
+        sub_panel.add_widget(sub_tab)
+
+        sub_tab = TabbedPanelItem(text="slurp")
+        button_container.add_widget(add_binary_output)
+        button_container.add_widget(slurp_button)
+        button_container.add_widget(webcam_button)
+        button_container.add_widget(gphoto2_button)
+        sub_tab.add_widget(button_container)
+        sub_panel.add_widget(sub_tab)
+
         img_container.add_widget(img)
 
         upper_container.add_widget(img_container)
@@ -696,9 +833,8 @@ class ChecklistApp(App):
         tab.keybindings.append(img)
         root.add_widget(tab)
 
-        thumbnail_container = ScatterTextWidget()
         widgets_to_add = []
-        for _ in range(10):
+        for _ in range(2):
             img = self.glworb_binary()
             widgets_to_add.append(functools.partial(
                                     thumbnail_container.image_grid.add_widget,
@@ -713,8 +849,8 @@ class ChecklistApp(App):
 
         for c in thumbnail_container.image_grid.children:
             print(c.size, c.width, c.height)
-            c.height = 400
-            c.width = 400
+            c.width = self.thumbnail_width
+            c.height = self.thumbnail_height
             thumbnail_container.image_grid.width += c.width
             if c.height > thumbnail_container.height:
                 thumbnail_container.image_grid.height = c.height
