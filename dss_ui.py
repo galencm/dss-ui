@@ -714,8 +714,13 @@ class ChecklistApp(App):
                 return b''
 
         if add_method == "slurp":
-            output = subprocess.check_output(["ma-throw", "slurp"]).decode()
-            process_feedback = output
+            try:
+                output = subprocess.check_output(["ma-throw", "slurp"]).decode()
+                process_feedback = output
+            except subprocess.CalledProcessError as ex:
+                process_feedback = str(ex)
+                output = None
+
             if output:
                 glworbs = [s for s in process_feedback.split("'") if "glworb:" in s]
                 for g in glworbs:
@@ -727,15 +732,20 @@ class ChecklistApp(App):
                 process_feedback = " ".join(glworbs)
         elif add_method == "webcam":
             addr = "/dev/video0"
-            subprocess.call(["fswebcam",
-                             "--no-banner",
-                             "--save",
-                             tmp_output_filename,
-                             "-d",
-                             addr,
-                             "-r",
-                             "1280x960"])
-            contents = file_bytes(tmp_output_filename)
+            try:
+                subprocess.call(["fswebcam",
+                                 "--no-banner",
+                                 "--save",
+                                 tmp_output_filename,
+                                 "-d",
+                                 addr,
+                                 "-r",
+                                 "1280x960"])
+                contents = file_bytes(tmp_output_filename)
+            except subprocess.CalledProcessError as ex:
+                process_feedback = str(ex)
+                contents = None
+
             if contents:
                 process_feedback = tmp_output_filename
                 img = self.bytes_binary(contents)
@@ -744,11 +754,16 @@ class ChecklistApp(App):
                 img.height = self.thumbnail_height
                 display_widget.width += img.width
         elif add_method == "gphoto2":
-            output = subprocess.check_output(["gphoto2",
-                                     "--capture-image-and-download",
-                                     "--filename={}".format(tmp_output_filename),
-                                     "--force-overwrite"]).decode()
-            contents = file_bytes(tmp_output_filename)
+            try:
+                output = subprocess.check_output(["gphoto2",
+                                         "--capture-image-and-download",
+                                         "--filename={}".format(tmp_output_filename),
+                                         "--force-overwrite"]).decode()
+                contents = file_bytes(tmp_output_filename)
+            except subprocess.CalledProcessError as ex:
+                process_feedback = str(ex)
+                contents = None
+
             if contents:
                 process_feedback = tmp_output_filename
                 img = self.bytes_binary(contents)
