@@ -701,7 +701,7 @@ class ChecklistApp(App):
         file_picker.open()
 
     def add_binaries(self, add_method, output_label, display_widget, *args):
-        tmp_output_filename = "/tmp/slurped.jpg"
+        tmp_output_filename = "/tmp/slurped_{}.jpg".format(str(uuid.uuid4()))
         process_feedback = ""
 
         def file_bytes(filename):
