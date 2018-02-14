@@ -8,6 +8,7 @@ import random
 import io
 import functools
 from kivy.app import App
+from kivy.lang import Builder
 from kivy.uix.image import Image
 from kivy.core.image import Image as CoreImage
 from kivy.core.window import Window
@@ -23,6 +24,7 @@ from kivy.clock import Clock
 from kivy.uix.textinput import TextInput
 from kivy.uix.accordion import Accordion, AccordionItem
 from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
+from kivy.uix.scrollview import ScrollView
 from PIL import Image as PImage
 import redis
 import attr
@@ -35,6 +37,45 @@ binary_r = redis.StrictRedis(host=r_ip, port=r_port)
 r = redis.StrictRedis(host=r_ip, port=r_port, decode_responses=True)
 
 Config.read('config.ini')
+
+kv = """
+#:import ScrollEffect  kivy.effects.scroll.ScrollEffect
+<ScatterTextWidget>:
+    id:image_container
+    orientation: 'vertical'
+    image_grid:image_grid
+    scroller:scroller
+    ScrollViewer:
+        size_hint_y: None
+        size_hint_x:None
+        canvas:
+            Color:
+                rgba: 1, 0, 0, 0.05
+            Rectangle:
+                pos: self.pos
+                size: self.size
+        id:scroller
+        width:self.parent.width
+        height:self.parent.height
+        effect_cls:ScrollEffect
+        GridLayout:
+            canvas:
+                Color:
+                    rgba: 0, 0, 0, 0.5
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+            id: image_grid
+            rows: 1
+            size_hint_y: None
+            size_hint_x: None
+            #size:self.parent.size
+            #width:3000
+            spacing: 0, 0
+            padding: 0, 0
+"""
+
+Builder.load_string(kv)
 
 @attr.s
 class Group(object):
@@ -118,6 +159,60 @@ class Group(object):
 
         return [min_x, min_y, max_x, max_y]
 
+class ScatterTextWidget(BoxLayout):
+
+    def __init__(self, **kwargs):
+        super(ScatterTextWidget, self).__init__(**kwargs)
+        self.image_grid.bind(minimum_height=self.image_grid.setter('height'),
+                             minimum_width=self.image_grid.setter('width'))
+
+    def on_touch_up(self, touch):
+        return super(ScatterTextWidget, self).on_touch_up(touch)
+
+class ScrollViewer(ScrollView):
+    def __init__(self, **kwargs):
+        super(ScrollViewer, self).__init__(**kwargs)
+
+    def handle_keybinds(self, keycode, modifiers):
+        if keycode[1] == 'left' and not modifiers:
+            try:
+                self.scroll_x -= (1/len(self.parent.image_grid.children))
+                if self.scroll_x < 0:
+                    self.scroll_x = 0
+            except TypeError as ex:
+                pass
+        elif keycode[1] == 'right' and not modifiers:
+            try:
+                self.scroll_x += (1/len(self.parent.image_grid.children))
+                if self.scroll_x > 1:
+                    self.scroll_x = 1
+            except TypeError as ex:
+                pass
+
+    def enlarge(self, zoom_amount=2):
+        for child in self.parent.image_grid.children:
+            child.width *= zoom_amount
+            child.height *= zoom_amount
+
+    def shrink(self, zoom_amount=2):
+        for child in self.parent.image_grid.children:
+            print(child.size)
+            child.width /= zoom_amount
+            child.height /= zoom_amount
+
+    def on_touch_down(self, touch):
+        #self.dispatch('on_test_event', touch)  # Some event that happens with on_touch_down
+        #zoom_amount = 100
+        zoom_amount = 2
+        print(touch.button)
+        if touch.button == 'left':
+            return super().on_touch_down(touch)
+        elif touch.button == 'scrollup':
+            self.enlarge()
+        elif touch.button == 'scrolldown':
+            self.shrink()
+    pass
+
 class GroupItem(BoxLayout):
     def __init__(self,**kwargs):
         self.group = None
@@ -197,10 +292,10 @@ class ClickableImage(Image):
     def resize_window(self, *args):
         # only resize once...
         if self.resized is False:
-            w, h = self.norm_image_size
-            w = int(w)
-            h = int(h)
-            Window.size = w * 2, h
+            # w, h = self.norm_image_size
+            # w = int(w)
+            # h = int(h)
+            # Window.size = w * 2, h
             self.resized = True
 
     def clear_grid(self):
@@ -376,10 +471,10 @@ class ClickableImage(Image):
             self.geometry = []
             self.clear_grid()
             self.draw_groups()
-        elif keycode[1] == "down":
+        elif keycode[1] == "down" and 'ctrl' in modifiers:
             self.row_spacing += 10
             self.col_spacing += 10
-        elif keycode[1] == "up":
+        elif keycode[1] == "up" and 'ctrl' in modifiers:
             self.row_spacing -= 10
             self.col_spacing -= 10
         # elif keycode[1] == "right":
@@ -396,21 +491,23 @@ class ClickableImage(Image):
     def on_touch_up(self, touch):
 
         if touch.grab_current is self:
-            if touch.button == 'right':
-                # choose an selection / deselection axis
-                # by using the greater delta of x or y
-                if abs(touch.dsx) > abs(touch.dsy):
-                    self.draw_grid_click_line(touch.x, touch.y, "x")
-                elif abs(touch.dsy) > abs(touch.dsx):
-                    self.draw_grid_click_line(touch.x, touch.y, "y")
-            elif touch.button == 'left':
-                self.draw_grid_click(touch.x, touch.y)
-            elif touch.button == 'middle':
-                if abs(touch.dsx) > abs(touch.dsy):
-                    self.draw_grid_click_segment(touch.opos[0], touch.opos[1], touch.x, touch.y, "x")
-                elif abs(touch.dsy) > abs(touch.dsx):
-                    self.draw_grid_click_segment(touch.opos[0], touch.opos[1], touch.x, touch.y, "y")
-
+            try:
+                if touch.button == 'right':
+                    # choose an selection / deselection axis
+                    # by using the greater delta of x or y
+                    if abs(touch.dsx) > abs(touch.dsy):
+                        self.draw_grid_click_line(touch.x, touch.y, "x")
+                    elif abs(touch.dsy) > abs(touch.dsx):
+                        self.draw_grid_click_line(touch.x, touch.y, "y")
+                elif touch.button == 'left':
+                    self.draw_grid_click(touch.x, touch.y)
+                elif touch.button == 'middle':
+                    if abs(touch.dsx) > abs(touch.dsy):
+                        self.draw_grid_click_segment(touch.opos[0], touch.opos[1], touch.x, touch.y, "x")
+                    elif abs(touch.dsy) > abs(touch.dsx):
+                        self.draw_grid_click_segment(touch.opos[0], touch.opos[1], touch.x, touch.y, "y")
+            except AttributeError as ex:
+                print(ex)
 
             touch.ungrab(self)
             return True
@@ -509,7 +606,8 @@ class TabItem(TabbedPanelItem):
             for i, c in enumerate(self.parent.children):
                 if c == self.root.current_tab:
                     try:
-                        c.keybindings.handle_keybinds(keycode, modifiers)
+                        for widget in c.keybindings:
+                            widget.handle_keybinds(keycode, modifiers)
                     except Exception as ex:
                         print(ex)
 
@@ -524,16 +622,15 @@ class ColorPickerPopup(Popup):
         self.size_hint = (.5,.5)
         super(ColorPickerPopup, self).__init__()
 
+
+
 class ChecklistApp(App):
     def __init__(self, *args,**kwargs):
         self.resize_size = 1000
         self.groups = []
         super(ChecklistApp, self).__init__()
 
-    def build(self):
-
-        root = TabbedPanel(do_default_tab=False)
-        root.tab_width = 200
+    def glworb_binary(self):
         binary_keys = ["binary_key", "binary", "image_binary_key"]
         glworb = random.choice(data_models.enumerate_data(pattern="glworb:*"))
         for bkey in binary_keys:
@@ -564,27 +661,67 @@ class ChecklistApp(App):
                              keep_ratio=True)
         img.texture = CoreImage(data, ext="jpg", keep_data=True).texture
         img.app = self
+        print(">",img.size)
+        return img
+
+    def build(self):
+
+        root = TabbedPanel(do_default_tab=False)
+        root.tab_width = 200
 
         tab = TabItem(text="overview",root=root)
         root.add_widget(tab)
 
         tab = TabItem(text="image",root=root)
-        tab_container = BoxLayout(orientation='horizontal')
+        tab_container = BoxLayout(orientation='vertical')
+        upper_container = BoxLayout(orientation='horizontal')
+        lower_container = BoxLayout(orientation='horizontal', height=800, size_hint=(1,1))
+
         img_container = BoxLayout(orientation='horizontal')
         categories_container = BoxLayout(orientation='horizontal')
         gc = GroupContainer(orientation='vertical')
+        img = self.glworb_binary()
         img.group_container = gc
         categories_container.add_widget(gc)
         img_container.add_widget(img)
-        tab_container.add_widget(img_container)
-        tab_container.add_widget(categories_container)
+
+        upper_container.add_widget(img_container)
+        upper_container.add_widget(categories_container)
+
+        tab_container.add_widget(upper_container)
+        tab_container.add_widget(lower_container)
+
         tab.add_widget(tab_container)
-        tab.keybindings = img
+        tab.keybindings = []
+        tab.keybindings.append(img)
         root.add_widget(tab)
 
-        tab = TabItem(text="categories",root=root)
-        root.add_widget(tab)
+        thumbnail_container = ScatterTextWidget()
+        widgets_to_add = []
+        for _ in range(10):
+            img = self.glworb_binary()
+            widgets_to_add.append(functools.partial(
+                                    thumbnail_container.image_grid.add_widget,
+                                    img,
+                                    index=len(thumbnail_container.image_grid.children))
+                                  )
+        for widget in widgets_to_add:
+            widget()
 
+        lower_container.add_widget(thumbnail_container)
+        tab.keybindings.append(thumbnail_container.scroller)
+
+        for c in thumbnail_container.image_grid.children:
+            print(c.size, c.width, c.height)
+            c.height = 400
+            c.width = 400
+            thumbnail_container.image_grid.width += c.width
+            if c.height > thumbnail_container.height:
+                thumbnail_container.image_grid.height = c.height
+                lower_container.height = c.height
+        # tab = TabItem(text="categories",root=root)
+        # tab.add_widget(group_container)
+        # root.add_widget(tab)
         return root
 
 if __name__ == "__main__":
