@@ -541,6 +541,11 @@ class ClickableImage(Image):
                     elif abs(touch.dsy) > abs(touch.dsx):
                         self.draw_grid_click_segment(touch.opos[0], touch.opos[1], touch.x, touch.y, "y")
             except AttributeError as ex:
+                # if exception:
+                # 'ClickableImage' object has no attribute 'group_container'
+                # clicked image is a thumbnail, update working image
+                # with thumbnail's texture
+                self.app.working_image.texture = self.texture
                 print(ex)
 
             touch.ungrab(self)
@@ -825,6 +830,7 @@ class ChecklistApp(App):
         # use for recycleview item actions when calling
         # add_glworb
         self.thumbnails = thumbnail_container.image_grid
+        self.working_image = None
 
         tab = TabItem(text="overview",root=root)
         root.add_widget(tab)
@@ -841,8 +847,11 @@ class ChecklistApp(App):
         files_container = BoxLayout(orientation='horizontal')
         glworbs_container = BoxLayout(orientation='horizontal')
         gc = GroupContainer(orientation='vertical')
+
         img = self.glworb_binary()
+        self.working_image = img
         img.group_container = gc
+
         add_binary_output = Label(text="",font_size=12)
         slurp_button = Button(text="slurp (ma)", font_size=20)
         webcam_button = Button(text="webcam (shell)", font_size=20)
