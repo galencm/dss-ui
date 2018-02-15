@@ -375,7 +375,7 @@ class ClickableImage(Image):
                             if not group.hide:
                                 Rectangle(pos=(x,y), size=(w, h), group=group.name)
                             else:
-                                Line(rectangle=(x,y,w,h),width=3)
+                                Line(rectangle=(x, y, w, h), width=3, group=group.name)
                     except Exception as ex:
                         # None may be returned if no regions in group
                         pass
