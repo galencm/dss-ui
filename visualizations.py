@@ -179,7 +179,6 @@ def project_overview(project, width, height, filename=None, orientation='horizon
     file = io.BytesIO()
     extension = 'JPEG'
     overview_image.save(file, extension)
-    overview_image.show()
     overview_image.close()
     file.seek(0)
 
