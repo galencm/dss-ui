@@ -32,10 +32,12 @@ def project_overview(project, width, height, filename=None, orientation='horizon
             coloring = {}
 
     sequence_steps = []
-    for k,v in project['categories'].items():
-        for step in range(v):
-            sequence_steps.append(k)
-
+    try:
+        for k,v in project['categories'].items():
+            for step in range(v):
+                sequence_steps.append(k)
+    except KeyError:
+        pass
     # fallback color schemes
     # catch 'None' and '*' for everything else
     if not 'None' in coloring:
