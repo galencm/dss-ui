@@ -21,6 +21,12 @@ from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.colorpicker import ColorPicker
 from kivy.uix.filechooser import FileChooserListView
+from kivy.uix.recycleview import RecycleView
+from kivy.uix.recycleview.views import RecycleDataViewBehavior
+from kivy.uix.recycleboxlayout import RecycleBoxLayout
+from kivy.uix.behaviors import FocusBehavior
+from kivy.uix.behaviors import ButtonBehavior
+from kivy.uix.recycleview.layout import LayoutSelectionBehavior
 from kivy.uix.popup import Popup
 from kivy.clock import Clock
 from kivy.uix.textinput import TextInput
@@ -75,6 +81,16 @@ kv = """
             #width:3000
             spacing: 0, 0
             padding: 0, 0
+<GlworbRecycleView>:
+    viewclass: 'GlworbLabel'
+    RecycleBoxLayout:
+        default_size: None, None
+        default_size_hint: 1, None
+        size_hint_y: None
+        height: self.minimum_height
+        orientation: 'vertical'
+<GlworbLabel>:
+    size: self.texture_size
 """
 
 Builder.load_string(kv)
@@ -161,6 +177,23 @@ class Group(object):
 
         return [min_x, min_y, max_x, max_y]
 
+class GlworbLabel(RecycleDataViewBehavior, ButtonBehavior, Label):
+    def __init__(self, **kwargs):
+        super(GlworbLabel, self).__init__(**kwargs)
+
+    def on_press(self):
+        self.parent.parent.app.add_glworb(self.glworb)
+
+class GlworbRecycleView(RecycleView):
+    def __init__(self, **kwargs):
+        self.viewclass = 'GlworbLabel'
+
+        super(GlworbRecycleView, self).__init__(**kwargs)
+        self.data = []
+        for glworb in data_models.enumerate_data(pattern="glworb:*"):
+            self.data.append({'text': str(data_models.pretty_format(r.hgetall(glworb), glworb)), 'glworb' : glworb})
+
+
 class ScatterTextWidget(BoxLayout):
 
     def __init__(self, **kwargs):
@@ -206,7 +239,6 @@ class ScrollViewer(ScrollView):
         #self.dispatch('on_test_event', touch)  # Some event that happens with on_touch_down
         #zoom_amount = 100
         zoom_amount = 2
-        print(touch.button)
         if touch.button == 'left':
             return super().on_touch_down(touch)
         elif touch.button == 'scrollup':
@@ -700,6 +732,16 @@ class ChecklistApp(App):
         #file_picker.content.bind(color=self.on_color)
         file_picker.open()
 
+    def add_glworb(self, glworb_id, display_widget=None):
+        if display_widget is None:
+            display_widget = self.thumbnails
+        img = self.glworb_binary(glworb=glworb_id)
+        print(img)
+        display_widget.add_widget(img)
+        img.width = self.thumbnail_width
+        img.height = self.thumbnail_height
+        display_widget.width += img.width
+
     def add_binaries(self, add_method, output_label, display_widget, *args):
         tmp_output_filename = "/tmp/slurped_{}.jpg".format(str(uuid.uuid4()))
         process_feedback = ""
@@ -780,6 +822,9 @@ class ChecklistApp(App):
         root.tab_width = 200
 
         thumbnail_container = ScatterTextWidget()
+        # use for recycleview item actions when calling
+        # add_glworb
+        self.thumbnails = thumbnail_container.image_grid
 
         tab = TabItem(text="overview",root=root)
         root.add_widget(tab)
@@ -794,10 +839,11 @@ class ChecklistApp(App):
 
         groups_container = BoxLayout(orientation='horizontal')
         files_container = BoxLayout(orientation='horizontal')
+        glworbs_container = BoxLayout(orientation='horizontal')
         gc = GroupContainer(orientation='vertical')
         img = self.glworb_binary()
         img.group_container = gc
-        add_binary_output = Label(text="",font_size=20)
+        add_binary_output = Label(text="",font_size=12)
         slurp_button = Button(text="slurp (ma)", font_size=20)
         webcam_button = Button(text="webcam (shell)", font_size=20)
         gphoto2_button = Button(text="gphoto2 (shell)", font_size=20)
@@ -819,8 +865,16 @@ class ChecklistApp(App):
 
         sub_panel = TabbedPanel(do_default_tab=False)
         categories_container.add_widget(sub_panel)
+
         sub_tab = TabbedPanelItem(text="groups")
         sub_tab.add_widget(groups_container)
+        sub_panel.add_widget(sub_tab)
+
+        sub_tab = TabbedPanelItem(text="glworbs")
+        glworb_view = GlworbRecycleView()
+        glworb_view.app = self
+        glworbs_container.add_widget(glworb_view)
+        sub_tab.add_widget(glworbs_container)
         sub_panel.add_widget(sub_tab)
 
         sub_tab = TabbedPanelItem(text="files")
