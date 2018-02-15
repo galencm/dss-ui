@@ -265,12 +265,22 @@ class GroupItem(BoxLayout):
             group_name = TextInput(text=self.group.name, multiline=False, font_size=20, background_color=(.6, .6, .6, 1))
             group_region = Label(text=str(self.group.bounding_rectangle))
             group_name.bind(on_text_validate=functools.partial(self.on_text_enter))
+            group_hide = Button(text="hide", font_size=20)
+            group_remove = Button(text= "del", font_size=20)
+
             self.add_widget(group_color)
             self.add_widget(group_name)
             self.add_widget(group_region)
+            self.add_widget(group_hide)
+            self.add_widget(group_remove)
+            group_remove.bind(on_press=self.remove_group)
+
             self.group_region = group_region
             self.group_color = group_color
             self.initial_update = True
+
+    def remove_group(self, *args):
+        self.parent.remove_group(self.group.name)
 
     def pick_color(self,*args):
         color_picker = ColorPickerPopup()
@@ -309,8 +319,12 @@ class GroupContainer(BoxLayout):
         for group in self.children:
             try:
                 if group.group.name == name:
-                    self.remove_widge(group)
-            except AttributeError:
+                    self.app.groups.remove(group.group)
+                    self.app.removed_groups.append(name)
+                    del group.group
+                    self.remove_widget(group)
+            except AttributeError as ex:
+                print(ex)
                 pass
 
 class ClickableImage(Image):
@@ -342,16 +356,22 @@ class ClickableImage(Image):
 
     def draw_groups(self):
         with self.canvas:
-            for group in self.app.groups:
-                self.canvas.remove_group(group.name)
-                # Color(128, 128, 128, 0.5)
-                Color(*group.color.rgb, 0.5)
+            for group in self.app.groups + self.app.removed_groups:
+                # this will not clear removed groups
                 try:
-                    for x, y, w, h in [group.bounding_rectangle]:
-                        Rectangle(pos=(x,y), size=(w, h), group=group.name)
-                except Exception as ex:
-                    # None may be returned if no regions in group
-                    pass
+                    self.canvas.remove_group(group.name)
+                    # Color(128, 128, 128, 0.5)
+                    Color(*group.color.rgb, 0.5)
+                    try:
+                        for x, y, w, h in [group.bounding_rectangle]:
+                            Rectangle(pos=(x,y), size=(w, h), group=group.name)
+                    except Exception as ex:
+                        # None may be returned if no regions in group
+                        pass
+                except AttributeError:
+                    self.canvas.remove_group(group)
+
+        self.app.removed_groups = []
 
     def draw_grid(self):
         self.resize_window()
@@ -685,6 +705,7 @@ class ChecklistApp(App):
         self.working_image_width = 400
 
         self.groups = []
+        self.removed_groups = []
         super(ChecklistApp, self).__init__()
 
     def bytes_binary(self, data):
@@ -875,6 +896,7 @@ class ChecklistApp(App):
         files_container = BoxLayout(orientation='horizontal')
         glworbs_container = BoxLayout(orientation='horizontal')
         groups_layout = GroupContainer(orientation='vertical', size_hint_y=None, height=self.working_image_height, minimum_height=self.working_image_height)
+        groups_layout.app = self
         groups_scroll = ScrollView(bar_width=20)
         groups_scroll.add_widget(groups_layout)
 
