@@ -39,6 +39,8 @@ import attr
 import uuid
 import colour
 from ma_cli import data_models
+import visualizations
+
 
 r_ip, r_port = data_models.service_connection()
 binary_r = redis.StrictRedis(host=r_ip, port=r_port)
@@ -830,6 +832,10 @@ class ChecklistApp(App):
 
         output_label.text = str(process_feedback)
 
+    def update_project_image(self):
+        overview = visualizations.project_overview(self.project, Window.width, 50, orientation='horizontal', color_key=True)[1]
+        self.project_image.texture = CoreImage(overview, ext="jpg", keep_data=True).texture
+
     def build(self):
 
         root = TabbedPanel(do_default_tab=False)
@@ -841,7 +847,20 @@ class ChecklistApp(App):
         self.thumbnails = thumbnail_container.image_grid
         self.working_image = None
 
+        project_container = BoxLayout(orientation='vertical')
+        project_name = TextInput(text="", multiline=False, height=50, size_hint_y=None, font_size=20)
+        project_name_label = Label(text="project name:", halign="left", height=50, size_hint_y=None, font_size=20)
+        project_image = Image(size_hint_y=None)
+        self.project = {}
+        self.project_image = project_image
+        self.update_project_image()
+
+        project_container.add_widget(project_name_label)
+        project_container.add_widget(project_name)
+        project_container.add_widget(project_image)
+
         tab = TabItem(text="overview",root=root)
+        tab.add_widget(project_container)
         root.add_widget(tab)
 
         tab = TabItem(text="image",root=root)
