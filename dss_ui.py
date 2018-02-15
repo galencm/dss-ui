@@ -296,10 +296,12 @@ class GroupContainer(BoxLayout):
                 pass
 
     def add_group(self, group):
-        g = GroupItem()
+        g = GroupItem(height=50, size_hint_y=None)
         g.group = group
         g.update_group_display()
         self.add_widget(g)
+        # set scroll location to created group
+        self.parent.scroll_to(g)
 
     def remove_group(self, name):
         for group in self.children:
@@ -673,6 +675,9 @@ class ChecklistApp(App):
         self.resize_size = 1000
         self.thumbnail_height = 400
         self.thumbnail_width = 400
+        self.working_image_height = 400
+        self.working_image_width = 400
+
         self.groups = []
         super(ChecklistApp, self).__init__()
 
@@ -846,11 +851,13 @@ class ChecklistApp(App):
         groups_container = BoxLayout(orientation='horizontal')
         files_container = BoxLayout(orientation='horizontal')
         glworbs_container = BoxLayout(orientation='horizontal')
-        gc = GroupContainer(orientation='vertical')
+        groups_layout = GroupContainer(orientation='vertical', size_hint_y=None, height=self.working_image_height, minimum_height=self.working_image_height)
+        groups_scroll = ScrollView(bar_width=20)
+        groups_scroll.add_widget(groups_layout)
 
         img = self.glworb_binary()
         self.working_image = img
-        img.group_container = gc
+        img.group_container = groups_layout
 
         add_binary_output = Label(text="",font_size=12)
         slurp_button = Button(text="slurp (ma)", font_size=20)
@@ -870,7 +877,7 @@ class ChecklistApp(App):
 
         #actions_container.add_widget(slurp_button)
         files_container.add_widget(FileChooserListView())
-        groups_container.add_widget(gc)
+        groups_container.add_widget(groups_scroll)
 
         sub_panel = TabbedPanel(do_default_tab=False)
         categories_container.add_widget(sub_panel)
