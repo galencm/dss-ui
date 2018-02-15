@@ -398,7 +398,10 @@ class ClickableImage(Image):
                 Rectangle(pos=(x,y), size=(w, h),group='selections')
 
     def draw_grid_click(self, x, y):
-        w, h = self.texture_size
+        # w, h = self.texture_size
+        w,h = self.norm_image_size
+        w = int(w)
+        h = int(h)
         group = None
         # check in 'plus' pattern for adding
         # to existing group
@@ -429,7 +432,7 @@ class ClickableImage(Image):
             Ellipse(pos=(x - (dotsize / 2), y - (dotsize / 2)), size=(dotsize, dotsize), group='clicks')
         # 0,0 is lower left corner
         for col in range(0 + self.offset_x, w + self.offset_x, self.col_spacing):
-            for row in range(0, h + self.offset_y + self.offset_top, self.row_spacing):
+            for row in range(0 + self.offset_y, h + self.offset_y, self.row_spacing):
                 if col < x and x < col + self.col_spacing:
                     if row < y and y < row + self.row_spacing:
                         rect = (col, row, self.col_spacing, self.row_spacing)
