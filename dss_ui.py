@@ -102,6 +102,7 @@ class Group(object):
     regions = attr.ib(default=attr.Factory(list))
     color = attr.ib(default=None)
     name = attr.ib(default="")
+    hide = attr.ib(default=False)
 
     @property
     def x(self):
@@ -266,18 +267,25 @@ class GroupItem(BoxLayout):
             group_region = Label(text=str(self.group.bounding_rectangle))
             group_name.bind(on_text_validate=functools.partial(self.on_text_enter))
             group_hide = Button(text="hide", font_size=20)
+            group_hide.bind(on_press=self.hide_group)
             group_remove = Button(text= "del", font_size=20)
+            group_remove.bind(on_press=self.remove_group)
 
             self.add_widget(group_color)
             self.add_widget(group_name)
             self.add_widget(group_region)
             self.add_widget(group_hide)
             self.add_widget(group_remove)
-            group_remove.bind(on_press=self.remove_group)
 
             self.group_region = group_region
             self.group_color = group_color
             self.initial_update = True
+
+    def hide_group(self, button, *args):
+        hide_status = {True: 'unhide',
+                       False: 'hide'}
+        self.group.hide = not self.group.hide
+        button.text = hide_status[self.group.hide]
 
     def remove_group(self, *args):
         self.parent.remove_group(self.group.name)
@@ -364,7 +372,10 @@ class ClickableImage(Image):
                     Color(*group.color.rgb, 0.5)
                     try:
                         for x, y, w, h in [group.bounding_rectangle]:
-                            Rectangle(pos=(x,y), size=(w, h), group=group.name)
+                            if not group.hide:
+                                Rectangle(pos=(x,y), size=(w, h), group=group.name)
+                            else:
+                                Line(rectangle=(x,y,w,h),width=3)
                     except Exception as ex:
                         # None may be returned if no regions in group
                         pass
