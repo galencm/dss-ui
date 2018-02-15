@@ -353,7 +353,6 @@ class ClickableImage(Image):
 
     def draw_grid(self):
         self.resize_window()
-
         w,h = self.norm_image_size
         # normalized image floats in boxlayout so for a
         # nonsquare image there will be padding around
@@ -361,7 +360,8 @@ class ClickableImage(Image):
         # drawing grid
 
         self.offset_x = int((self.parent.size[0] - self.norm_image_size[0]) / 2)
-        self.offset_y = int((self.parent.size[0] - self.norm_image_size[1]) / 2)
+        # would have to / 2 if image is floating y axis
+        self.offset_y = int((self.parent.size[0] - self.norm_image_size[1]))
         # [750.0, 516.0] [1000, 750] [750.0, 516.0] (688.0, 516.0)
         # print(self.parent.size, self.texture_size, self.size, self.norm_image_size)
         # print(self.offset_x, self.offset_y,)
@@ -377,15 +377,16 @@ class ClickableImage(Image):
                 for col in range(0, w, self.col_spacing):
                     # for line 0 coordinate is bottom of screen?
                     # h (ie entire height) is top...
-                    Line(points=[col + self.offset_x, 0, col + self.offset_x, h], width=1, group='grid')
+                    Line(points=[col + self.offset_x, 0 + self.offset_y, col + self.offset_x, h + self.offset_y], width=1.5, group='grid')
                     # debug from 0,0
-                    #Line(points=[0, 0, col + self.offset_x, h + self.offset_y + self.offset_top], width=1, group='grid')
+                    # Line(points=[0, 0, col + self.offset_x, h + self.offset_y + self.offset_top], width=1, group='grid')
 
             if self.rows is not None:
                 for row in range(0, h, self.row_spacing):
-                    Line(points=[0 + self.offset_x, row, w + self.offset_x, row], width=1, group='grid')
+                    #Line(points=[0 + self.offset_x, row, w + self.offset_x, row], width=1, group='grid')
                     # debug from 0,0
-                    #Line(points=[0, 0, w + self.offset_x, row], width=1, group='grid')
+                    Line(points=[0 + self.offset_x, row + self.offset_y, w + self.offset_x, row + self.offset_y], width=1.5, group='grid')
+                    # Line(points=[0, 0, w + self.offset_x, row], width=1, group='grid')
 
     def draw_geometry(self):
         self.clear_grid()
