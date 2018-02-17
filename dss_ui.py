@@ -656,8 +656,15 @@ class TabItem(TabbedPanelItem):
         super(TabItem , self).__init__(**kwargs)
 
     def _keyboard_closed(self):
-        self._keyboard.unbind(on_key_down=self._on_keyboard_down)
-        self._keyboard = None
+        # do not unbind the keyboard because
+        # if keyboard is requested by textinput
+        # widget, this keyboard used for app keybinds
+        # will be unbound and not rebound after
+        # defocusing textinput widget
+        #
+        # self._keyboard.unbind(on_key_down=self._on_keyboard_down)
+        # self._keyboard = None
+        pass
 
     def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
         if keycode[1] == 'right' and 'shift' in modifiers:
