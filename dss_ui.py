@@ -28,6 +28,7 @@ from kivy.uix.behaviors import FocusBehavior
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.recycleview.layout import LayoutSelectionBehavior
 from kivy.uix.popup import Popup
+from kivy.uix.dropdown import DropDown
 from kivy.clock import Clock
 from kivy.uix.textinput import TextInput
 from kivy.uix.accordion import Accordion, AccordionItem
@@ -96,6 +97,66 @@ kv = """
 """
 
 Builder.load_string(kv)
+
+
+@attr.s
+class Rule(object):
+    source_field = attr.ib(default="")
+    comparator_symbol = attr.ib(default="")
+    comparator_params = attr.ib(default=attr.Factory(list))
+    dest_field = attr.ib(default="")
+    rule_result = attr.ib(default="")
+    rough_amount = attr.ib(default=0)
+
+    def quote(self, string):
+        if string:
+            if not string.startswith('"'):
+                string = '"' + string
+            if not string.endswith('"'):
+                string += '"'
+            return string
+        else:
+            return '""'
+    @property
+    def rule_result_string(self):
+        quoted_rule_result = self.rule_result
+        return self.quote(quoted_rule_result)
+
+    @property
+    def comparator_params_string(self):
+        params = self.comparator_params
+        if self.comparator_symbol == "~~":
+            params[0] = self.quote(params[0])
+        return " ".join(params)
+
+    @property
+    def as_string(self):
+        s = attr.asdict(self)
+        s.update({'comparator_params_string' : self.comparator_params_string})
+        s.update({'rule_result_string' : self.rule_result_string})
+        return "{source_field} {comparator_symbol} {comparator_params_string} -> {dest_field} {rule_result_string}".format(**s)
+
+@attr.s
+class RuleSet(object):
+    rules = attr.ib(default=attr.Factory(list))
+
+    @property
+    def as_string(self):
+        return ""
+
+@attr.s
+class RuleSymbols(object):
+    symbols = {
+    "~~" : "case insensitive equals",
+    "is" : "is of type",
+    "between" : "integer range between"
+    }
+
+    types = ["int", "roman", "str"]
+
+    # symbol_params
+    # is <type>
+    # between int1,int2
 
 @attr.s
 class Group(object):
@@ -249,6 +310,241 @@ class ScrollViewer(ScrollView):
         elif touch.button == 'scrolldown':
             self.shrink()
     pass
+
+class RuleGenerator(BoxLayout):
+    def __init__(self,**kwargs):
+        self.orientation='vertical'
+        self.app = None
+        self.rule_symbols = RuleSymbols()
+        self.thumbnail_height = 25
+        self.project_image_thumbnail = Image(height=self.thumbnail_height)
+        super(RuleGenerator, self).__init__(**kwargs)
+        self.preview_container = BoxLayout()
+        self.create_container = BoxLayout()
+        self.action_container = BoxLayout()
+
+        self.source_fields = DropDown()
+        source_default = Button(text="", size_hint_y=None, height=44)
+        source_default.bind(on_press=self.update)
+        source_default.bind(on_release=self.source_fields.open)
+        self.source_default = source_default
+        self.source_fields.bind(on_select=lambda instance, x: setattr(source_default, 'text', x))
+
+        self.comparator_symbols =  DropDown()
+        for symbol in self.rule_symbols.symbols.keys():
+            btn = Button(text=symbol, size_hint_y=None, height=44)
+            btn.bind(on_release=lambda btn: self.comparator_symbols.select(btn.text))
+            self.comparator_symbols.add_widget(btn)
+
+        comparator_default = Button(text="", size_hint_y=None, height=44)
+        comparator_default.bind(on_release=self.comparator_symbols.open)
+        self.comparator_default = comparator_default
+        self.comparator_symbols.bind(on_select=lambda instance, x: self.comparator_params(instance, x))
+
+
+        # this should somehow be modular / extensible
+        # and defined by RuleSymbols class
+        param_container = BoxLayout(orientation='horizontal')
+        self.param_container = param_container
+
+        self.case_insensitive_equals_params = DropDownInput(size_hint_y=None, height=44)
+        self.type_params =  DropDown()
+        self.type_params_default = Button(text="", size_hint_y=None, height=44)
+        for t in self.rule_symbols.types:
+            btn = Button(text=t, size_hint_y=None, height=44)
+            btn.bind(on_release=lambda btn: self.type_params.select(btn.text))
+            self.type_params.add_widget(btn)
+        self.type_params_default.bind(on_release=self.type_params.open)
+        self.type_params.bind(on_select=lambda instance, x: setattr(self.type_params_default, 'text', x))
+
+        self.between_params_default = BoxLayout(orientation='horizontal')
+        self.between_params_default.add_widget(TextInput(text="", size_hint_y=None, height=44))
+        self.between_params_default.add_widget(Label(text="to", size_hint_y=None, height=44))
+        self.between_params_default.add_widget(TextInput(text="", size_hint_y=None, height=44))
+
+        self.dest_fields = DropDownInput(size_hint_y=None, height=44)
+        self.rule_result = DropDownInput(size_hint_y=None, height=44)
+
+        self.preview_container.add_widget(self.project_image_thumbnail)
+        self.add_widget(self.create_container)
+        self.add_widget(self.action_container)
+        self.add_widget(self.preview_container)
+
+        create_button = Button(text="create rule", size_hint_y=None, height=44)
+        create_button.bind(on_release=self.create_rule)
+        self.action_container.add_widget(create_button)
+
+        self.create_container.add_widget(Label(text="result", font_size=15, size_hint_y=None, height=44))
+        self.create_container.add_widget(self.rule_result)
+        self.create_container.add_widget(Label(text="found in", font_size=15, size_hint_y=None, height=44))
+        self.create_container.add_widget(self.dest_fields)
+        self.create_container.add_widget(Label(text="is identifiable by region", font_size=15, size_hint_y=None, height=44, text_size=(self.width, None)))
+        self.create_container.add_widget(source_default)
+        self.create_container.add_widget(Label(text="with characteristics", font_size=15, size_hint_y=None, height=44, text_size=(self.width, None)))
+        self.create_container.add_widget(comparator_default)
+        self.create_container.add_widget(param_container)
+
+    def create_rule(self, widget):
+        rule = Rule()
+        rule.source_field = self.source_default.text
+        rule.comparator_symbol = self.comparator_default.text
+        params = []
+
+        for c in self.param_container.children:
+            if hasattr(c, "text"):
+                params.append(c.text)
+            # search one layer deep for additional params
+            try:
+                for cc in c.children:
+                    if hasattr(cc, "text") and not isinstance(cc, Label):
+                        params.append(cc.text)
+            except Exception as ex:
+                pass
+
+        rule.comparator_params = params
+        rule.dest_field = self.dest_fields.text
+        rule.rule_result = self.rule_result.text
+
+        self.rule_container.add_rule(RuleItem(rule))
+        self.update_thumbnail()
+
+    def update_thumbnail(self):
+        overview_thumbnail = visualizations.project_overview(self.app.project, int(self.width), 25, orientation='horizontal', color_key=True)[1]
+        self.project_image_thumbnail.texture = CoreImage(overview_thumbnail, ext="jpg", keep_data=True).texture
+
+
+    def comparator_params(self, widget, selected_value, *args):
+        self.comparator_default.text = selected_value
+        print(self.param_container.children)
+        for c in self.param_container.children:
+            self.param_container.remove_widget(c)
+
+        if selected_value == "is":
+            try:
+                self.param_container.add_widget(self.type_params_default)
+            except Exception as ex:
+                pass
+        elif selected_value == 'between':
+            try:
+                self.param_container.add_widget(self.between_params_default)
+            except Exception as ex:
+                pass
+        elif selected_value == '~~':
+            try:
+                self.param_container.add_widget(self.case_insensitive_equals_params)
+            except Exception as ex:
+                pass
+
+    def update(self, widget, *args):
+        # clear all dropdown items on update to remove deleted
+        self.source_fields.children[0].children = []
+        for group in self.app.groups:
+            btn = Button(text=group.name, size_hint_y=None, height=44, color=group.color.rgb)
+            btn.bind(on_release=lambda btn: self.source_fields.select(btn.text))
+
+            if group.name not in [ c.text for c in self.source_fields.children[0].children if hasattr(c, 'text')]:
+                self.source_fields.add_widget(btn)
+
+class DropDownInput(TextInput):
+
+    def __init__(self, **kw):
+        self.multiline = False
+        self.drop_down = DropDown()
+        self.drop_down.bind(on_select=self.on_select)
+        self.bind(on_text_validate=self.add_text)
+        super(DropDownInput, self).__init__(**kw)
+        self.add_widget(self.drop_down)
+
+    def add_text(self,*args):
+        if args[0].text not in [btn.text for btn in self.drop_down.children[0].children if hasattr(btn ,'text')]:
+            btn = Button(text=args[0].text, size_hint_y=None, height=44)
+            self.drop_down.add_widget(btn)
+            btn.bind(on_release=lambda btn: self.drop_down.select(btn.text))
+
+    def on_select(self, *args):
+        self.text = args[1]
+        if args[1] not in [btn.text for btn in self.drop_down.children[0].children if hasattr(btn ,'text')]:
+            self.drop_down.append(Button(text=args[1]))
+
+    def on_touch_up(self, touch):
+        if touch.grab_current == self:
+            self.drop_down.open(self)
+        return super(DropDownInput, self).on_touch_up(touch)
+
+
+class RuleItem(BoxLayout):
+    def __init__(self, rule, **kwargs):
+        self.rule = rule
+        self.rough_items_input = TextInput(hint_text=str(rule.rough_amount), size_hint_x=.1, multiline=False, height=44, size_hint_y=None)
+        self.rough_items_input.bind(on_text_validate=self.update)
+        # add colorpicker for palette
+        self.rule_string = Label(text=self.rule.as_string)
+        self.rule_remove = Button(text= "del", size_hint_x=.2, font_size=20, height=44, size_hint_y=None)
+        self.rule_remove.bind(on_press=self.remove_rule)
+
+        super(RuleItem, self).__init__(**kwargs)
+        self.add_widget(self.rough_items_input)
+        self.add_widget(self.rule_string)
+        self.add_widget(self.rule_remove)
+
+    def update(self,widget):
+        self.rule.rough_amount = int(widget.text)
+        self.parent.update_project()
+        # messy call to update thumbnail
+        # perhaps move thumbnail to different widget
+        self.parent.app.rule_gen.update_thumbnail()
+
+    def remove_rule(self, widget):
+        # call RuleContainer
+        self.parent.remove_rule(self)
+
+class RuleContainer(BoxLayout):
+    def __init__(self, **kwargs):
+        super(RuleContainer, self).__init__(**kwargs)
+
+    def add_rule(self, rule):
+        rule.height = 44
+        rule.size_hint_y = None
+        self.add_widget(rule)
+        self.parent.scroll_to(rule)
+        self.update_project()
+
+    def remove_rule(self, rule_id):
+        for rule in self.children:
+            try:
+                if rule == rule_id:
+                    try:
+                        del self.app.project['categories'][rule.rule.rule_result]
+                    except KeyError:
+                        pass
+                    del rule.rule
+                    self.remove_widget(rule)
+            except AttributeError as ex:
+                pass
+        self.update_project()
+
+    def update_project(self):
+        if 'categories' not in self.app.project:
+            self.app.project['categories'] = {}
+        if 'palette' not in self.app.project:
+            self.app.project['palette'] = {}
+
+        for r in self.children:
+            if r.rule.rule_result not in self.app.project['categories']:
+                self.app.project['categories'][r.rule.rule_result] = 0
+
+            if r.rule.rule_result not in self.app.project['palette']:
+                self.app.project['palette'][r.rule.rule_result] = {}
+
+            self.app.project['categories'][r.rule.rule_result] = r.rule.rough_amount
+            # colour rgb produces r g bvalues between 0 - 1
+            # pillow uses rgb ints 0 -255 instead of floats
+            # so pass hex value and let visualize.py convert
+            self.app.project['palette'][r.rule.rule_result]['fill'] = colour.Color(pick_for=r).hex_l
+
+        self.app.update_project_image()
+
+
 
 class GroupItem(BoxLayout):
     def __init__(self,**kwargs):
@@ -947,6 +1243,24 @@ class ChecklistApp(App):
 
         sub_tab = TabbedPanelItem(text="groups")
         sub_tab.add_widget(groups_container)
+        sub_panel.add_widget(sub_tab)
+
+        sub_tab = TabbedPanelItem(text="categories")
+
+        rules_layout = RuleContainer(orientation='vertical', size_hint_y=None, height=self.working_image_height, minimum_height=self.working_image_height)
+        rules_layout.app = self
+        rules_scroll = ScrollView(bar_width=20)
+        rules_scroll.add_widget(rules_layout)
+
+        rules_container = BoxLayout(orientation='vertical')
+        rule_gen = RuleGenerator()
+        rule_gen.rule_container = rules_layout
+        rules_container.add_widget(rules_scroll)
+        rules_container.add_widget(rule_gen)
+        rule_gen.app = self
+        self.rule_gen = rule_gen
+        self.rule_gen.update_thumbnail()
+        sub_tab.add_widget(rules_container)
         sub_panel.add_widget(sub_tab)
 
         sub_tab = TabbedPanelItem(text="glworbs")
