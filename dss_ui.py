@@ -244,8 +244,13 @@ class Group(object):
 @attr.s
 class Category(object):
     color = attr.ib(default=None)
-    name = attr.ib(default="")
+    name = attr.ib(default=None)
     rough_amount = attr.ib(default=0)
+    # set name to random uuid if none supplied
+    @name.validator
+    def check(self, attribute, value):
+        if value is None:
+            setattr(self,'name',str(uuid.uuid4()))
 
 class GlworbLabel(RecycleDataViewBehavior, ButtonBehavior, Label):
     def __init__(self, **kwargs):
@@ -551,17 +556,71 @@ class RuleContainer(BoxLayout):
         self.app.update_project_image()
 
 class CategoryItem(BoxLayout):
-    def __init__(self,**kwargs):
+    def __init__(self, category, **kwargs):
+        self.category = category
         super(CategoryItem, self).__init__(**kwargs)
+        category.color = colour.Color(pick_for=category)
+        self.category_color = self.category.color.rgb
+        category_color_button = Button(text= "", background_normal='', font_size=20)
+        category_color_button.bind(on_press=self.pick_color)
+        category_color_button.background_color = (*self.category_color, 1)
+        category_name = TextInput(text=self.category.name, multiline=False, font_size=20, background_color=(.6, .6, .6, 1))
+        category_name.bind(on_text_validate=functools.partial(self.on_text_enter))
+        category_remove = Button(text= "del", font_size=20)
+        category_remove.bind(on_press=self.remove_category)
+        self.add_widget(category_color_button)
+        self.add_widget(category_name)
+        self.add_widget(category_remove)
+        self.category_color_button = category_color_button
+
+    def remove_category(self, *args):
+        self.parent.remove_category(self.category.name)
+
+    def pick_color(self,*args):
+        color_picker = ColorPickerPopup()
+        color_picker.content.bind(color=self.on_color)
+        color_picker.open()
+
+    def on_color(self, instance, *args):
+        self.category.color.rgb = instance.color[:3]
+        self.category_color_button.background_color = (*self.category.color.rgb, 1)
+        #update thumbnail preview
+
+    def on_text_enter(self, instance, *args):
+        print(instance.text, args)
+        self.category.name = instance.text
 
 class CategoryContainer(BoxLayout):
     def __init__(self, **kwargs):
         super(CategoryContainer, self).__init__(**kwargs)
 
+    def update_category(self, name):
+        pass
+
+    def add_category(self, category):
+        c = CategoryItem(category, height=50, size_hint_y=None)
+        self.add_widget(c)
+        self.parent.scroll_to(c)
+
+    def remove_category(self, name):
+        for category in self.children:
+            try:
+                if category.category.name == name:
+                    del category.category
+                    self.remove_widget(category)
+            except AttributeError as ex:
+                pass
+
 class CategoryGenerator(BoxLayout):
     def __init__(self,**kwargs):
         super(CategoryGenerator, self).__init__(**kwargs)
+        create_button = Button(text="create category", size_hint_y=None, height=44)
+        create_button.bind(on_release=self.create_category)
+        self.add_widget(create_button)
 
+    def create_category(self, widget):
+        category = Category()
+        self.category_container.add_category(category)
 
 class GroupItem(BoxLayout):
     def __init__(self,**kwargs):
