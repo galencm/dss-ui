@@ -632,8 +632,9 @@ class GroupItem(BoxLayout):
         if self.initial_update:
             self.group_region.text = str(self.group.bounding_rectangle)
             self.group_color.color = self.group.color.rgb
+            self.group_color.background_color = background_color=(*self.group.color.rgb, 1)
         else:
-            group_color = Button(text= "@@@", font_size=20, color=self.group.color.rgb)
+            group_color = Button(text= "@@@", background_normal='', font_size=20, color=self.group.color.rgb, background_color=(*self.group.color.rgb, 1))
             group_color.bind(on_press=self.pick_color)
             group_name = TextInput(text=self.group.name, multiline=False, font_size=20, background_color=(.6, .6, .6, 1))
             group_region = Label(text=str(self.group.bounding_rectangle))
