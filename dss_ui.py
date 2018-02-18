@@ -324,9 +324,9 @@ class ScrollViewer(ScrollView):
     pass
 
 class RuleGenerator(BoxLayout):
-    def __init__(self,**kwargs):
+    def __init__(self, app, **kwargs):
         self.orientation='vertical'
-        self.app = None
+        self.app = app
         self.rule_symbols = RuleSymbols()
         self.thumbnail_height = 25
         self.project_image_thumbnail = Image(height=self.thumbnail_height)
@@ -375,7 +375,7 @@ class RuleGenerator(BoxLayout):
         self.between_params_default.add_widget(TextInput(text="", size_hint_y=None, height=44))
 
         self.dest_fields = DropDownInput(size_hint_y=None, height=44)
-        self.rule_result = DropDownInput(size_hint_y=None, height=44)
+        self.rule_result = DropDownInput(preload=self.app.categories, preload_attr="category.name", size_hint_y=None, height=44)
 
         self.preview_container.add_widget(self.project_image_thumbnail)
         self.add_widget(self.create_container)
@@ -519,15 +519,15 @@ class DropDownInput(TextInput):
 class RuleItem(BoxLayout):
     def __init__(self, rule, **kwargs):
         self.rule = rule
-        self.rough_items_input = TextInput(hint_text=str(rule.rough_amount), size_hint_x=.1, multiline=False, height=44, size_hint_y=None)
-        self.rough_items_input.bind(on_text_validate=self.update)
+        # self.rough_items_input = TextInput(hint_text=str(rule.rough_amount), size_hint_x=.1, multiline=False, height=44, size_hint_y=None)
+        # self.rough_items_input.bind(on_text_validate=self.update)
         # add colorpicker for palette
         self.rule_string = Label(text=self.rule.as_string)
         self.rule_remove = Button(text= "del", size_hint_x=.2, font_size=20, height=44, size_hint_y=None)
         self.rule_remove.bind(on_press=self.remove_rule)
 
         super(RuleItem, self).__init__(**kwargs)
-        self.add_widget(self.rough_items_input)
+        # self.add_widget(self.rough_items_input)
         self.add_widget(self.rule_string)
         self.add_widget(self.rule_remove)
 
@@ -601,13 +601,19 @@ class CategoryItem(BoxLayout):
         category_name.bind(on_text_validate=functools.partial(self.on_text_enter))
         category_remove = Button(text= "del", font_size=20)
         category_remove.bind(on_press=self.remove_category)
+        self.rough_items_input = TextInput(hint_text=str(category.rough_amount), size_hint_x=.2, multiline=False, height=44, size_hint_y=None)
+        self.rough_items_input.bind(on_text_validate=self.update)
         self.add_widget(category_color_button)
         self.add_widget(category_name)
+        self.add_widget(self.rough_items_input)
         self.add_widget(category_remove)
         self.category_color_button = category_color_button
 
     def remove_category(self, *args):
         self.parent.remove_category(self.category.name)
+
+    def update(self,widget):
+        self.category.rough_amount = int(widget.text)
 
     def pick_color(self,*args):
         color_picker = ColorPickerPopup()
@@ -625,6 +631,7 @@ class CategoryItem(BoxLayout):
 
 class CategoryContainer(BoxLayout):
     def __init__(self, **kwargs):
+        self.categories = set()
         super(CategoryContainer, self).__init__(**kwargs)
 
     def update_category(self, name):
@@ -633,6 +640,7 @@ class CategoryContainer(BoxLayout):
     def add_category(self, category):
         c = CategoryItem(category, height=50, size_hint_y=None)
         self.add_widget(c)
+        self.categories.add(c)
         self.parent.scroll_to(c)
 
     def remove_category(self, name):
@@ -641,6 +649,7 @@ class CategoryContainer(BoxLayout):
                 if category.category.name == name:
                     del category.category
                     self.remove_widget(category)
+                    self.categories.remove(category)
             except AttributeError as ex:
                 pass
 
@@ -1368,6 +1377,7 @@ class ChecklistApp(App):
         categories_container.add_widget(category_gen)
         category_gen.app = self
         self.category_gen = category_gen
+        self.categories = categories_layout.categories
         sub_tab.add_widget(categories_container)
         sub_panel.add_widget(sub_tab)
 
@@ -1379,11 +1389,11 @@ class ChecklistApp(App):
         rules_scroll.add_widget(rules_layout)
 
         rules_container = BoxLayout(orientation='vertical')
-        rule_gen = RuleGenerator()
+        rule_gen = RuleGenerator(self)
         rule_gen.rule_container = rules_layout
         rules_container.add_widget(rules_scroll)
         rules_container.add_widget(rule_gen)
-        rule_gen.app = self
+        #rule_gen.app = self
         self.rule_gen = rule_gen
         self.rule_gen.update_thumbnail()
         sub_tab.add_widget(rules_container)
