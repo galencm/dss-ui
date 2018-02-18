@@ -8,6 +8,7 @@ import random
 import io
 import functools
 import subprocess
+import operator
 from kivy.app import App
 from kivy.lang import Builder
 from kivy.uix.image import Image
@@ -458,11 +459,15 @@ class RuleGenerator(BoxLayout):
 
 class DropDownInput(TextInput):
 
-    def __init__(self, preload=None, **kwargs):
+    def __init__(self, preload=None, preload_attr=None, preload_clean=True, **kwargs):
         self.multiline = False
         self.drop_down = DropDown()
         self.drop_down.bind(on_select=self.on_select)
         self.bind(on_text_validate=self.add_text)
+        self.preload = preload
+        self.preload_attr = preload_attr
+        self.preload_clean = preload_clean
+        self.not_preloaded = set()
         super(DropDownInput, self).__init__(**kwargs)
         self.add_widget(self.drop_down)
 
@@ -471,11 +476,39 @@ class DropDownInput(TextInput):
             btn = Button(text=args[0].text, size_hint_y=None, height=44)
             self.drop_down.add_widget(btn)
             btn.bind(on_release=lambda btn: self.drop_down.select(btn.text))
+            if not 'preload' in args:
+                self.not_preloaded.add(btn)
 
     def on_select(self, *args):
         self.text = args[1]
         if args[1] not in [btn.text for btn in self.drop_down.children[0].children if hasattr(btn ,'text')]:
             self.drop_down.append(Button(text=args[1]))
+            self.not_preloaded.add(btn)
+
+    def on_touch_down(self, touch):
+        preloaded = set()
+        if self.preload:
+            for thing in self.preload:
+                if self.preload_attr:
+                    # use operator to allow dot access of attributes
+                    thing_string = str(operator.attrgetter(self.preload_attr)(thing))
+                else:
+                    thing_string = str(thing)
+                self.add_text(Button(text=thing_string),'preload')
+                preloaded.add(thing_string)
+
+        # preload_clean removes entries that
+        # are not in the preload source anymore
+        if self.preload_clean is True:
+            added_through_widget = [btn.text for btn in self.not_preloaded if hasattr(btn ,'text')]
+            for btn in self.drop_down.children[0].children:
+                try:
+                    if btn.text not in preloaded and btn.text not in added_through_widget:
+                        self.drop_down.remove_widget(btn)
+                except Exception as ex:
+                    pass
+
+        return super(DropDownInput, self).on_touch_down(touch)
 
     def on_touch_up(self, touch):
         if touch.grab_current == self:
