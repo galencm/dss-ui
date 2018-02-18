@@ -328,10 +328,7 @@ class RuleGenerator(BoxLayout):
         self.orientation='vertical'
         self.app = app
         self.rule_symbols = RuleSymbols()
-        self.thumbnail_height = 25
-        self.project_image_thumbnail = Image(height=self.thumbnail_height)
         super(RuleGenerator, self).__init__(**kwargs)
-        self.preview_container = BoxLayout()
         self.create_container = BoxLayout()
         self.action_container = BoxLayout()
 
@@ -377,10 +374,8 @@ class RuleGenerator(BoxLayout):
         self.dest_fields = DropDownInput(size_hint_y=None, height=44)
         self.rule_result = DropDownInput(preload=self.app.categories, preload_attr="category.name", size_hint_y=None, height=44)
 
-        self.preview_container.add_widget(self.project_image_thumbnail)
         self.add_widget(self.create_container)
         self.add_widget(self.action_container)
-        self.add_widget(self.preview_container)
 
         create_button = Button(text="create rule", size_hint_y=None, height=44)
         create_button.bind(on_release=self.create_rule)
@@ -418,12 +413,6 @@ class RuleGenerator(BoxLayout):
         rule.rule_result = self.rule_result.text
 
         self.rule_container.add_rule(RuleItem(rule))
-        self.update_thumbnail()
-
-    def update_thumbnail(self):
-        overview_thumbnail = visualizations.project_overview(self.app.project, int(self.width), 25, orientation='horizontal', color_key=True)[1]
-        self.project_image_thumbnail.texture = CoreImage(overview_thumbnail, ext="jpg", keep_data=True).texture
-
 
     def comparator_params(self, widget, selected_value, *args):
         self.comparator_default.text = selected_value
@@ -534,9 +523,6 @@ class RuleItem(BoxLayout):
     def update(self,widget):
         self.rule.rough_amount = int(widget.text)
         self.parent.update_project()
-        # messy call to update thumbnail
-        # perhaps move thumbnail to different widget
-        self.parent.app.rule_gen.update_thumbnail()
 
     def remove_rule(self, widget):
         # call RuleContainer
@@ -1290,6 +1276,10 @@ class ChecklistApp(App):
         overview = visualizations.project_overview(self.project, Window.width, 50, orientation='horizontal', color_key=True)[1]
         self.project_image.texture = CoreImage(overview, ext="jpg", keep_data=True).texture
 
+    def update_project_thumbnail(self):
+        overview_thumbnail = visualizations.project_overview(self.project, 500, 25, orientation='horizontal', color_key=True)[1]
+        self.project_image_thumbnail.texture = CoreImage(overview_thumbnail, ext="jpg", keep_data=True).texture
+
     def build(self):
 
         root = TabbedPanel(do_default_tab=False)
@@ -1308,6 +1298,9 @@ class ChecklistApp(App):
         self.project = {}
         self.project_image = project_image
         self.update_project_image()
+        self.project_thumbnail_height = 25
+        self.project_image_thumbnail = Image(height=self.project_thumbnail_height, size_hint_y=None, size_hint_x=None, )
+        self.update_project_thumbnail()
 
         project_container.add_widget(project_name_label)
         project_container.add_widget(project_name)
@@ -1357,6 +1350,7 @@ class ChecklistApp(App):
         files_container.add_widget(FileChooserListView())
         groups_container.add_widget(groups_scroll)
 
+        tools_container.add_widget(self.project_image_thumbnail)
         sub_panel = TabbedPanel(do_default_tab=False)
         tools_container.add_widget(sub_panel)
 
@@ -1395,7 +1389,6 @@ class ChecklistApp(App):
         rules_container.add_widget(rule_gen)
         #rule_gen.app = self
         self.rule_gen = rule_gen
-        self.rule_gen.update_thumbnail()
         sub_tab.add_widget(rules_container)
         sub_panel.add_widget(sub_tab)
 
