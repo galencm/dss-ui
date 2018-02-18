@@ -1204,7 +1204,7 @@ class ChecklistApp(App):
         lower_container = BoxLayout(orientation='horizontal', height=800, size_hint=(1,1))
 
         img_container = BoxLayout(orientation='horizontal')
-        categories_container = BoxLayout(orientation='vertical')
+        tools_container = BoxLayout(orientation='vertical')
 
         groups_container = BoxLayout(orientation='horizontal')
         files_container = BoxLayout(orientation='horizontal')
@@ -1239,7 +1239,7 @@ class ChecklistApp(App):
         groups_container.add_widget(groups_scroll)
 
         sub_panel = TabbedPanel(do_default_tab=False)
-        categories_container.add_widget(sub_panel)
+        tools_container.add_widget(sub_panel)
 
         sub_tab = TabbedPanelItem(text="groups")
         sub_tab.add_widget(groups_container)
@@ -1285,7 +1285,7 @@ class ChecklistApp(App):
         img_container.add_widget(img)
 
         upper_container.add_widget(img_container)
-        upper_container.add_widget(categories_container)
+        upper_container.add_widget(tools_container)
 
         tab_container.add_widget(upper_container)
         tab_container.add_widget(lower_container)
