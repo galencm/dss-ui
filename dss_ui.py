@@ -584,16 +584,27 @@ class CategoryItem(BoxLayout):
         self.category.color.rgb = instance.color[:3]
         self.category_color_button.background_color = (*self.category.color.rgb, 1)
         #update thumbnail preview
+        self.parent.update()
 
     def on_text_enter(self, instance, *args):
         print(instance.text, args)
+        old_name = self.category.name
         self.category.name = instance.text
+        self.parent.updated_category_name(old_name, self.category.name)
 
 class CategoryContainer(BoxLayout):
     def __init__(self, **kwargs):
         self.categories = set()
         self.app = None
         super(CategoryContainer, self).__init__(**kwargs)
+
+    def updated_category_name(self, old_name, new_name):
+        try:
+            del self.app.project['categories'][old_name]
+            del self.app.project['palette'][old_name]
+        except Exception as ex:
+            pass
+        self.update()
 
     def update(self):
         if 'categories' not in self.app.project:
@@ -1278,8 +1289,9 @@ class ChecklistApp(App):
         self.project_image.texture = CoreImage(overview, ext="jpg", keep_data=True).texture
 
     def update_project_thumbnail(self):
-        overview_thumbnail = visualizations.project_overview(self.project, 500, 25, orientation='horizontal', color_key=True)[1]
+        overview_thumbnail = visualizations.project_overview(self.project, int(self.project_image_thumbnail.parent.width), 25, orientation='horizontal', color_key=True)[1]
         self.project_image_thumbnail.texture = CoreImage(overview_thumbnail, ext="jpg", keep_data=True).texture
+        self.project_image_thumbnail.size = self.project_image_thumbnail.texture_size
 
     def build(self):
 
@@ -1300,8 +1312,7 @@ class ChecklistApp(App):
         self.project_image = project_image
         self.update_project_image()
         self.project_thumbnail_height = 25
-        self.project_image_thumbnail = Image(height=self.project_thumbnail_height, size_hint_y=None, size_hint_x=None, )
-        self.update_project_thumbnail()
+        self.project_image_thumbnail = Image(height=self.project_thumbnail_height, size_hint_y=None)
 
         project_container.add_widget(project_name_label)
         project_container.add_widget(project_name)
@@ -1352,6 +1363,7 @@ class ChecklistApp(App):
         groups_container.add_widget(groups_scroll)
 
         tools_container.add_widget(self.project_image_thumbnail)
+        self.update_project_thumbnail()
         sub_panel = TabbedPanel(do_default_tab=False)
         tools_container.add_widget(sub_panel)
 
