@@ -241,6 +241,12 @@ class Group(object):
 
         return [min_x, min_y, max_x, max_y]
 
+@attr.s
+class Category(object):
+    color = attr.ib(default=None)
+    name = attr.ib(default="")
+    rough_amount = attr.ib(default=0)
+
 class GlworbLabel(RecycleDataViewBehavior, ButtonBehavior, Label):
     def __init__(self, **kwargs):
         super(GlworbLabel, self).__init__(**kwargs)
@@ -544,6 +550,17 @@ class RuleContainer(BoxLayout):
 
         self.app.update_project_image()
 
+class CategoryItem(BoxLayout):
+    def __init__(self,**kwargs):
+        super(CategoryItem, self).__init__(**kwargs)
+
+class CategoryContainer(BoxLayout):
+    def __init__(self, **kwargs):
+        super(CategoryContainer, self).__init__(**kwargs)
+
+class CategoryGenerator(BoxLayout):
+    def __init__(self,**kwargs):
+        super(CategoryGenerator, self).__init__(**kwargs)
 
 
 class GroupItem(BoxLayout):
@@ -1243,6 +1260,22 @@ class ChecklistApp(App):
 
         sub_tab = TabbedPanelItem(text="groups")
         sub_tab.add_widget(groups_container)
+        sub_panel.add_widget(sub_tab)
+
+        sub_tab = TabbedPanelItem(text="categories")
+        categories_layout = CategoryContainer(orientation='vertical', size_hint_y=None, height=self.working_image_height, minimum_height=self.working_image_height)
+        categories_layout.app = self
+        categories_scroll = ScrollView(bar_width=20)
+        categories_scroll.add_widget(categories_layout)
+
+        categories_container = BoxLayout(orientation='vertical')
+        category_gen = CategoryGenerator()
+        category_gen.category_container = categories_layout
+        categories_container.add_widget(categories_scroll)
+        categories_container.add_widget(category_gen)
+        category_gen.app = self
+        self.category_gen = category_gen
+        sub_tab.add_widget(categories_container)
         sub_panel.add_widget(sub_tab)
 
         sub_tab = TabbedPanelItem(text="rules")
