@@ -573,6 +573,7 @@ class CategoryItem(BoxLayout):
 
     def update(self,widget):
         self.category.rough_amount = int(widget.text)
+        self.parent.update()
 
     def pick_color(self,*args):
         color_picker = ColorPickerPopup()
@@ -591,10 +592,30 @@ class CategoryItem(BoxLayout):
 class CategoryContainer(BoxLayout):
     def __init__(self, **kwargs):
         self.categories = set()
+        self.app = None
         super(CategoryContainer, self).__init__(**kwargs)
 
-    def update_category(self, name):
-        pass
+    def update(self):
+        if 'categories' not in self.app.project:
+            self.app.project['categories'] = {}
+        if 'palette' not in self.app.project:
+            self.app.project['palette'] = {}
+
+        for c in self.children:
+            if c.category.name not in self.app.project['categories']:
+                self.app.project['categories'][c.category.name] = 0
+
+            if c.category.name not in self.app.project['palette']:
+                self.app.project['palette'][c.category.name] = {}
+
+            self.app.project['categories'][c.category.name] = c.category.rough_amount
+            # colour rgb produces r g bvalues between 0 - 1
+            # pillow uses rgb ints 0 -255 instead of floats
+            # so pass hex value and let visualize.py convert
+            self.app.project['palette'][c.category.name]['fill'] = c.category.color.hex_l
+
+        self.app.update_project_image()
+        self.app.update_project_thumbnail()
 
     def add_category(self, category):
         c = CategoryItem(category, height=50, size_hint_y=None)
@@ -606,6 +627,13 @@ class CategoryContainer(BoxLayout):
         for category in self.children:
             try:
                 if category.category.name == name:
+                    try:
+                        del self.app.project['categories'][category.category.name]
+                        del self.app.project['palette'][category.category.name]
+                        self.app.update_project_image()
+                        self.app.update_project_thumbnail()
+                    except Exception as ex:
+                        pass
                     del category.category
                     self.remove_widget(category)
                     self.categories.remove(category)
