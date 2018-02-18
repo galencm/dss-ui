@@ -458,12 +458,12 @@ class RuleGenerator(BoxLayout):
 
 class DropDownInput(TextInput):
 
-    def __init__(self, **kw):
+    def __init__(self, preload=None, **kwargs):
         self.multiline = False
         self.drop_down = DropDown()
         self.drop_down.bind(on_select=self.on_select)
         self.bind(on_text_validate=self.add_text)
-        super(DropDownInput, self).__init__(**kw)
+        super(DropDownInput, self).__init__(**kwargs)
         self.add_widget(self.drop_down)
 
     def add_text(self,*args):
