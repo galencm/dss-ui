@@ -537,42 +537,15 @@ class RuleContainer(BoxLayout):
         rule.size_hint_y = None
         self.add_widget(rule)
         self.parent.scroll_to(rule)
-        self.update_project()
 
     def remove_rule(self, rule_id):
         for rule in self.children:
             try:
                 if rule == rule_id:
-                    try:
-                        del self.app.project['categories'][rule.rule.rule_result]
-                    except KeyError:
-                        pass
                     del rule.rule
                     self.remove_widget(rule)
             except AttributeError as ex:
                 pass
-        self.update_project()
-
-    def update_project(self):
-        if 'categories' not in self.app.project:
-            self.app.project['categories'] = {}
-        if 'palette' not in self.app.project:
-            self.app.project['palette'] = {}
-
-        for r in self.children:
-            if r.rule.rule_result not in self.app.project['categories']:
-                self.app.project['categories'][r.rule.rule_result] = 0
-
-            if r.rule.rule_result not in self.app.project['palette']:
-                self.app.project['palette'][r.rule.rule_result] = {}
-
-            self.app.project['categories'][r.rule.rule_result] = r.rule.rough_amount
-            # colour rgb produces r g bvalues between 0 - 1
-            # pillow uses rgb ints 0 -255 instead of floats
-            # so pass hex value and let visualize.py convert
-            self.app.project['palette'][r.rule.rule_result]['fill'] = colour.Color(pick_for=r).hex_l
-
-        self.app.update_project_image()
 
 class CategoryItem(BoxLayout):
     def __init__(self, category, **kwargs):
