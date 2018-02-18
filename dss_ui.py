@@ -1130,8 +1130,8 @@ class FileChooserPopup(Popup):
 class ChecklistApp(App):
     def __init__(self, *args,**kwargs):
         self.resize_size = 1000
-        self.thumbnail_height = 400
-        self.thumbnail_width = 400
+        self.thumbnail_height = 250
+        self.thumbnail_width = 250
         self.working_image_height = 400
         self.working_image_width = 400
 
@@ -1325,7 +1325,7 @@ class ChecklistApp(App):
         tab = TabItem(text="image",root=root)
         tab_container = BoxLayout(orientation='vertical')
         upper_container = BoxLayout(orientation='horizontal')
-        lower_container = BoxLayout(orientation='horizontal', height=800, size_hint=(1,1))
+        lower_container = BoxLayout(orientation='horizontal', height=self.thumbnail_height, size_hint=(1,None))
 
         img_container = BoxLayout(orientation='horizontal')
         tools_container = BoxLayout(orientation='vertical')
