@@ -1245,7 +1245,7 @@ class ChecklistApp(App):
         sub_tab.add_widget(groups_container)
         sub_panel.add_widget(sub_tab)
 
-        sub_tab = TabbedPanelItem(text="categories")
+        sub_tab = TabbedPanelItem(text="rules")
 
         rules_layout = RuleContainer(orientation='vertical', size_hint_y=None, height=self.working_image_height, minimum_height=self.working_image_height)
         rules_layout.app = self
