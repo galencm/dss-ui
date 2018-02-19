@@ -756,7 +756,6 @@ class ClickableImage(Image):
         self.col_spacing = 100
         self.offset_x = 0
         self.offset_y = 0
-        self.offset_top = 0
         self.geometry = []
         self.app = None
         self.resized = False
@@ -804,14 +803,13 @@ class ClickableImage(Image):
         # nonsquare image there will be padding around
         # image, calculate amount and use as offset for
         # drawing grid
-
         self.offset_x = int((self.parent.size[0] - self.norm_image_size[0]) / 2)
-        # would have to / 2 if image is floating y axis
-        self.offset_y = int((self.parent.size[0] - self.norm_image_size[1]))
+        # print(self.parent.size[0], self.norm_image_size[1], self.size)
+        self.offset_y = int((self.parent.size[0] - self.norm_image_size[1]) / 2)
         # [750.0, 516.0] [1000, 750] [750.0, 516.0] (688.0, 516.0)
         # print(self.parent.size, self.texture_size, self.size, self.norm_image_size)
         # print(self.offset_x, self.offset_y,)
-        self.offset_top = int(abs(self.parent.top - Window.size[1]))
+
         w = int(w)
         h = int(h)
         self.canvas.remove_group('grid')
@@ -825,7 +823,7 @@ class ClickableImage(Image):
                     # h (ie entire height) is top...
                     Line(points=[col + self.offset_x, 0 + self.offset_y, col + self.offset_x, h + self.offset_y], width=1.5, group='grid')
                     # debug from 0,0
-                    # Line(points=[0, 0, col + self.offset_x, h + self.offset_y + self.offset_top], width=1, group='grid')
+                    # Line(points=[0, 0, col + self.offset_x, h + self.offset_y], width=1, group='grid')
 
             if self.rows is not None:
                 for row in range(0, h, self.row_spacing):
