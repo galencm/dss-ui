@@ -20,6 +20,7 @@ from kivy.graphics import Color, Line, Ellipse, InstructionGroup
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.scatter import Scatter
+from kivy.uix.scatterlayout import ScatterLayout
 from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.colorpicker import ColorPicker
@@ -748,8 +749,11 @@ class GroupContainer(BoxLayout):
                     del group.group
                     self.remove_widget(group)
             except AttributeError as ex:
-                print(ex)
                 pass
+
+class OverlayImage(Image):
+    def __init__(self, **kwargs):
+        super(OverlayImage, self).__init__(**kwargs)
 
 class ClickableImage(Image):
     def __init__(self, **kwargs):
@@ -1002,12 +1006,12 @@ class ClickableImage(Image):
                 if touch.button == 'left':
                     self.app.working_image.texture = self.texture
                 elif touch.button == 'right':
-                    scatter = Scatter()
-                    image = Image()
-                    image.texture = self.texture
-                    image.opacity = 0.5
-                    scatter.add_widget(image)     
-                    self.app.overlay_container.add_widget(scatter)
+                    # easiest multitouch right click involves
+                    # right click on thumbnail, then slightly
+                    # dragging the red dot with left button held
+                    # down and releasing left button
+                    self.app.overlay_image.texture = self.texture
+
             touch.ungrab(self)
             return True
                     
@@ -1400,7 +1404,14 @@ class ChecklistApp(App):
         sub_panel.add_widget(sub_tab)
 
         img_container.add_widget(img)
-        self.overlay_container = img_container
+
+        scatter = ScatterLayout()
+        image = OverlayImage()
+        image.opacity = 0.5
+        scatter.add_widget(image)
+        img_container.add_widget(scatter)
+
+        self.overlay_image = image
         # upper_container.add_widget(img_container)
         upper_container.add_widget(tools_container)
 
