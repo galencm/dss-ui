@@ -321,7 +321,8 @@ class ScrollViewer(ScrollView):
             self.enlarge()
         elif touch.button == 'scrolldown':
             self.shrink()
-    pass
+
+        return super(ScrollViewer, self).on_touch_down(touch)
 
 class RuleGenerator(BoxLayout):
     def __init__(self, app, **kwargs):
