@@ -1323,7 +1323,10 @@ class ChecklistApp(App):
         root.add_widget(tab)
 
         tab = TabItem(text="image",root=root)
-        tab_container = BoxLayout(orientation='vertical')
+        tab_container = BoxLayout(orientation='horizontal')
+        left_container = BoxLayout(orientation='vertical')
+        right_container = BoxLayout(orientation='vertical')
+
         upper_container = BoxLayout(orientation='horizontal')
         lower_container = BoxLayout(orientation='horizontal', height=self.thumbnail_height, size_hint=(1,None))
 
@@ -1426,11 +1429,16 @@ class ChecklistApp(App):
 
         img_container.add_widget(img)
 
-        upper_container.add_widget(img_container)
+        # upper_container.add_widget(img_container)
         upper_container.add_widget(tools_container)
 
-        tab_container.add_widget(upper_container)
-        tab_container.add_widget(lower_container)
+
+        left_container.add_widget(img_container)
+        right_container.add_widget(upper_container)
+        right_container.add_widget(lower_container)
+
+        tab_container.add_widget(left_container)
+        tab_container.add_widget(right_container)
 
         tab.add_widget(tab_container)
         tab.keybindings = []
