@@ -1381,7 +1381,7 @@ class ChecklistApp(App):
         categories_scroll.add_widget(categories_layout)
 
         categories_container = BoxLayout(orientation='vertical')
-        category_gen = CategoryGenerator()
+        category_gen = CategoryGenerator(size_hint_y=None)
         category_gen.category_container = categories_layout
         categories_container.add_widget(categories_scroll)
         categories_container.add_widget(category_gen)
