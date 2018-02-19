@@ -1010,42 +1010,6 @@ class ClickableImage(Image):
                     self.app.overlay_container.add_widget(scatter)
             touch.ungrab(self)
             return True
-
-            # p = touch.pos 
-            # o = touch.opos 
-            # s = min(p[0],o[0]), min(p[1],o[1]), abs(p[0]-o[0]), abs(p[1]-o[1])
-            # s = min(p[0],o[0]), min(p[1],o[1]), abs(p[0]-o[0]), abs(p[1]-o[1])
-            # w  = s[2]
-            # h  = s[3]
-            # sx = s[0]
-            # sy = s[1]
-            # if abs(w) > 5 and abs(h) >5:
-            #     if self.collide_point(touch.pos[0],touch.pos[1]):
-            #         #self.add_widget(Selection(pos=(sx,sy),size=(w, h)))
-            #         #self.canvas.add(Rectangle(pos=(sx,sy),size=(w, h),color=(155,155,155,0.5)))
-
-            #         #because getting resized image no knowldge of original geometry
-            #         #for scaling...
-
-            #         print("added widget for ",self)
-            #         print(self.texture_size,self.norm_image_size,self.size)
-            #         # width_scale  = self.texture_size[0] / self.norm_image_size[0]
-            #         # height_scale = self.texture_size[1] / self.norm_image_size[1]
-            #         x = touch.opos[0]
-            #         y = abs(touch.opos[1]-self.norm_image_size[1])
-            #         w = touch.pos[0]-touch.opos[0]
-            #         h =abs(touch.pos[1]-self.norm_image_size[1])-abs(touch.opos[1]-self.norm_image_size[1])
-
-            #         print(x,y,w,h)
-            #         px = x / self.norm_image_size[0]
-            #         py = y / self.norm_image_size[1]
-            #         pw = w / self.norm_image_size[0]
-            #         ph = h / self.norm_image_size[1]
-
-            #         # print(Window.size)
-            #         print(px,py,pw,ph)
-            #         print(px*self.norm_image_size[0],py*self.norm_image_size[1],pw*self.norm_image_size[0],ph*self.norm_image_size[1])
-            #         percents= "{} {} {} {}".format(px,py,pw,ph)
                     
         return super().on_touch_up(touch)
 
