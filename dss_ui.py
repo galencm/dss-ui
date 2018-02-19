@@ -18,6 +18,8 @@ from kivy.config import Config
 from kivy.graphics.vertex_instructions import Rectangle
 from kivy.graphics import Color, Line, Ellipse, InstructionGroup
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.scatter import Scatter
 from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.colorpicker import ColorPicker
@@ -972,6 +974,7 @@ class ClickableImage(Image):
         if self.collide_point(*touch.pos):
             touch.grab(self)
             return True
+        return super().on_touch_down(touch)
 
     def on_touch_up(self, touch):
 
@@ -996,9 +999,15 @@ class ClickableImage(Image):
                 # 'ClickableImage' object has no attribute 'group_container'
                 # clicked image is a thumbnail, update working image
                 # with thumbnail's texture
-                self.app.working_image.texture = self.texture
-                print(ex)
-
+                if touch.button == 'left':
+                    self.app.working_image.texture = self.texture
+                elif touch.button == 'right':
+                    scatter = Scatter()
+                    image = Image()
+                    image.texture = self.texture
+                    image.opacity = 0.5
+                    scatter.add_widget(image)     
+                    self.app.overlay_container.add_widget(scatter)
             touch.ungrab(self)
             return True
 
@@ -1329,7 +1338,7 @@ class ChecklistApp(App):
         upper_container = BoxLayout(orientation='horizontal')
         lower_container = BoxLayout(orientation='horizontal', height=self.thumbnail_height, size_hint=(1,None))
 
-        img_container = BoxLayout(orientation='horizontal')
+        img_container = FloatLayout()
         tools_container = BoxLayout(orientation='vertical')
 
         groups_container = BoxLayout(orientation='horizontal')
@@ -1427,7 +1436,7 @@ class ChecklistApp(App):
         sub_panel.add_widget(sub_tab)
 
         img_container.add_widget(img)
-
+        self.overlay_container = img_container
         # upper_container.add_widget(img_container)
         upper_container.add_widget(tools_container)
 
