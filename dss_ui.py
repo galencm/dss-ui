@@ -9,6 +9,7 @@ import io
 import functools
 import subprocess
 import operator
+import hashlib
 from kivy.app import App
 from kivy.lang import Builder
 from kivy.uix.image import Image
@@ -169,6 +170,7 @@ class Group(object):
     name = attr.ib(default="")
     hide = attr.ib(default=False)
     source_dimensions = attr.ib(default=attr.Factory(list))
+    source = attr.ib(default="")
 
     @property
     def x(self):
@@ -781,7 +783,7 @@ class OverlayImage(Image):
         self.app.removed_groups = []
 
 class ClickableImage(Image):
-    def __init__(self, **kwargs):
+    def __init__(self, source_hash=None, **kwargs):
         self.rows = 0
         self.cols = 0
         self.row_spacing = 100
@@ -791,6 +793,7 @@ class ClickableImage(Image):
         self.geometry = []
         self.app = None
         self.resized = False
+        self.source_hash = source_hash
         super(ClickableImage, self).__init__(**kwargs)
 
     def resize_window(self, *args):
@@ -901,6 +904,7 @@ class ClickableImage(Image):
             group.name = str(uuid.uuid4())
             group.color = colour.Color(pick_for=group)
             group.source_dimensions = [self.width, self.height]
+            group.source = self.source_hash
             self.group_container.add_group(group)
 
         Color(128, 128, 128, 0.5)
@@ -1031,6 +1035,7 @@ class ClickableImage(Image):
                 # with thumbnail's texture
                 if touch.button == 'left':
                     self.app.working_image.texture = self.texture
+                    self.app.working_image.source_hash = self.source_hash
                 elif touch.button == 'right':
                     # easiest multitouch right click involves
                     # right click on thumbnail, then slightly
@@ -1075,8 +1080,11 @@ def bimg_resized(uuid, new_size, linking_uuid=None):
     img.save(file, extension)
     img.close()
     file.seek(0)
-    #return file.getvalue()
-    return file
+
+    filehash = hashlib.new('sha256')
+    filehash.update(f.getvalue())
+
+    return file, filehash
 
 class TabItem(TabbedPanelItem):
     def __init__(self, root=None, **kwargs):
@@ -1169,7 +1177,10 @@ class ChecklistApp(App):
         img.close()
         file.seek(0)
 
-        img = ClickableImage(
+        filehash = hashlib.new('sha256')
+        filehash.update(f.getvalue())
+
+        img = ClickableImage(source_hash=filehash.hexdigest(),
                              allow_stretch=True,
                              keep_ratio=True)
         img.texture = CoreImage(file, ext="jpg", keep_data=True).texture
@@ -1187,8 +1198,11 @@ class ChecklistApp(App):
             if data:
                 print("{} has data".format(bkey))
                 break
+
+        filehash = None
+
         try:
-            data = bimg_resized(data, self.resize_size, linking_uuid=glworb)
+            data, filehash = bimg_resized(data, self.resize_size, linking_uuid=glworb)
         except OSError as ex:
             print(ex)
             data = None
@@ -1205,7 +1219,10 @@ class ChecklistApp(App):
             file.seek(0)
             data = file
 
-        img = ClickableImage(
+            filehash = hashlib.new('sha256')
+            filehash.update(file.getvalue())
+
+        img = ClickableImage(source_hash=filehash.hexdigest(),
                              allow_stretch=True,
                              keep_ratio=True)
         img.texture = CoreImage(data, ext="jpg", keep_data=True).texture
