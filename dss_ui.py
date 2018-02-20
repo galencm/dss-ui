@@ -1310,6 +1310,16 @@ class ChecklistApp(App):
         self.project_image_thumbnail.texture = CoreImage(overview_thumbnail, ext="jpg", keep_data=True).texture
         self.project_image_thumbnail.size = self.project_image_thumbnail.texture_size
 
+    def update_project_info(self, attribute, value):
+        self.project[attribute] = value
+
+    def add_project_info(self, attribute, parent):
+        parent.add_widget(Label(text=attribute, halign="left", height=50, size_hint_y=None, font_size=20))
+        new_attribute = DropDownInput(height=44, size_hint_y=None)
+        new_attribute.bind(on_text_validate=lambda widget: self.update_project_info(attribute, widget.text))
+        parent.add_widget(new_attribute)
+
+
     def build(self):
 
         root = TabbedPanel(do_default_tab=False)
@@ -1323,6 +1333,7 @@ class ChecklistApp(App):
 
         project_container = BoxLayout(orientation='vertical')
         project_name = TextInput(text="", multiline=False, height=50, size_hint_y=None, font_size=20)
+        project_name.bind(on_text_validate=lambda widget: self.update_project_info('name', widget.text))
         project_name_label = Label(text="project name:", halign="left", height=50, size_hint_y=None, font_size=20)
         project_image = Image(size_hint_y=None)
         self.project = {}
@@ -1333,7 +1344,27 @@ class ChecklistApp(App):
 
         project_container.add_widget(project_name_label)
         project_container.add_widget(project_name)
-        project_container.add_widget(project_image)
+
+
+        project_container.add_widget(Label(text="width:", halign="left", height=50, size_hint_y=None, font_size=20))
+        project_width = DropDownInput(height=44, size_hint_y=None)
+        project_width.bind(on_text_validate=lambda widget: self.update_project_info('width', widget.text))
+        project_container.add_widget(project_width)
+
+        project_container.add_widget(Label(text="height:", halign="left", height=50, size_hint_y=None, font_size=20))
+        project_height = DropDownInput(height=44, size_hint_y=None)
+        project_height.bind(on_text_validate=lambda widget: self.update_project_info('height', widget.text))
+        project_container.add_widget(project_height)
+
+        project_container.add_widget(Label(text="depth:", halign="left", height=50, size_hint_y=None, font_size=20))
+        project_depth = DropDownInput(height=44, size_hint_y=None)
+        project_depth.bind(on_text_validate=lambda widget: self.update_project_info('depth', widget.text))
+        project_container.add_widget(project_depth)
+
+        project_container.add_widget(Label(text="custom:", halign="left", height=50, size_hint_y=None, font_size=20))
+        project_depth = DropDownInput(height=44, size_hint_y=None)
+        project_depth.bind(on_text_validate=lambda widget: self.add_project_info(widget.text, project_container))
+        project_container.add_widget(project_depth)
 
         tab = TabItem(text="overview",root=root)
         tab.add_widget(project_container)
