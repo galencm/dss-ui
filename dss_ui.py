@@ -168,6 +168,7 @@ class Group(object):
     color = attr.ib(default=None)
     name = attr.ib(default="")
     hide = attr.ib(default=False)
+    source_dimensions = attr.ib(default=attr.Factory(list))
 
     @property
     def x(self):
@@ -899,6 +900,7 @@ class ClickableImage(Image):
             group = Group()
             group.name = str(uuid.uuid4())
             group.color = colour.Color(pick_for=group)
+            group.source_dimensions = [self.width, self.height]
             self.group_container.add_group(group)
 
         Color(128, 128, 128, 0.5)
