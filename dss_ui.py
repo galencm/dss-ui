@@ -752,8 +752,32 @@ class GroupContainer(BoxLayout):
                 pass
 
 class OverlayImage(Image):
-    def __init__(self, **kwargs):
+    def __init__(self, app, **kwargs):
+        self.app = app
         super(OverlayImage, self).__init__(**kwargs)
+        self.draw_groups()
+
+    def draw_groups(self):
+        with self.canvas:
+            for group in self.app.groups + self.app.removed_groups:
+                # this will not clear removed groups
+                try:
+                    self.canvas.remove_group(group.name)
+                    # Color(128, 128, 128, 0.5)
+                    Color(*group.color.rgb, 0.5)
+                    try:
+                        for x, y, w, h in [group.bounding_rectangle]:
+                            if not group.hide:
+                                Rectangle(pos=(x,y), size=(w, h), group=group.name)
+                            else:
+                                Line(rectangle=(x, y, w, h), width=3, group=group.name)
+                    except Exception as ex:
+                        # None may be returned if no regions in group
+                        pass
+                except AttributeError:
+                    self.canvas.remove_group(group)
+
+        self.app.removed_groups = []
 
 class ClickableImage(Image):
     def __init__(self, **kwargs):
@@ -1010,8 +1034,23 @@ class ClickableImage(Image):
                     # right click on thumbnail, then slightly
                     # dragging the red dot with left button held
                     # down and releasing left button
-                    self.app.overlay_image.texture = self.texture
 
+                    # initial add of scatterlayout does not resize
+                    # correcly, so only add scatter/image once a
+                    # thumbnail has been selected
+                    try:
+                        if self.app.overlay_image not in self.app.overlay_container.children:
+                            self.app.overlay_container.add_widget(self.app.overlay)
+                    except:
+                        #kivy.uix.widget.WidgetException
+                        pass
+
+                    self.app.overlay_image.texture = self.texture
+                    self.app.overlay_image.size = self.texture_size
+                    self.app.overlay_container.size = self.texture_size
+                    print(self.app.overlay_container.size , self.app.overlay_image.size, self.app.overlay_image.norm_image_size)
+
+                    self.app.overlay_image.draw_groups()
             touch.ungrab(self)
             return True
                     
@@ -1405,12 +1444,14 @@ class ChecklistApp(App):
 
         img_container.add_widget(img)
 
+        image = OverlayImage(self)
         scatter = ScatterLayout()
-        image = OverlayImage()
         image.opacity = 0.5
         scatter.add_widget(image)
-        img_container.add_widget(scatter)
-
+        #img_container.add_widget(scatter)
+        scatter.size = image.size
+        self.overlay_container = img_container
+        self.overlay = scatter
         self.overlay_image = image
         # upper_container.add_widget(img_container)
         upper_container.add_widget(tools_container)
