@@ -40,6 +40,7 @@ from kivy.uix.accordion import Accordion, AccordionItem
 from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
 from kivy.uix.scrollview import ScrollView
 from PIL import Image as PImage
+from lxml import etree
 import redis
 import attr
 import uuid
@@ -453,6 +454,91 @@ class RuleGenerator(BoxLayout):
             if group.name not in [ c.text for c in self.source_fields.children[0].children if hasattr(c, 'text')]:
                 self.source_fields.add_widget(btn)
 
+class OutputPreview(TextInput):
+    def __init__(self, app, **kwargs):
+        self.app = app
+        super(OutputPreview, self).__init__(**kwargs)
+
+    def on_touch_down(self, touch):
+        self.generate_xml()
+        return super(OutputPreview, self).on_touch_down(touch)
+
+    def generate_xml(self):
+        # clear existing
+        self.text = ""
+
+        # possible outputs
+        # xml (root <project></project>)
+        # xml (root <machine></machine>)
+        # xml + images used in groups (dir/zip)
+        # xml -> gsl -> scripts to start/stop pipes/rules
+        #     machinic tooling supports much of that... 
+        # xml -> gsl -> scripts to set based on project attributes
+        #     for example setting zoom based on height/width
+        # xml -> gsl? -> queuing for projects based on attributes
+        #     for example grouping by various aspects
+        #     stop previous project pipe / rules, start new project...
+        machine = etree.Element("machine")
+
+        p = etree.Element("project")
+        for k, v in self.app.project.items():
+            p.set(k, v)
+        self.text += etree.tostring(p, pretty_print=True).decode()
+        machine.append(p)        
+
+        used_source_hashes = set()
+        # groups
+        for group in self.app.groups:
+            g = etree.Element("group",name=group.name)
+            g.set("name", group.name)
+            g.set("color", group.color.hex_l)
+            for dimension_name, dimension in zip(['width','height','depth'], group.source_dimensions):
+                g.set(dimension_name, str(dimension))
+            for region in group.regions:
+                r = etree.SubElement(g, "region")
+                r.set("x", str(region[0]))
+                r.set("y", str(region[1]))
+                r.set("x2", str(region[2]))
+                r.set("y2", str(region[3]))
+                r.set("width", str(region[2] - region[0]))
+                r.set("height", str(region[3] - region[1]))
+                if group.source:
+                    r.set("source", group.source)
+                    used_source_hashes.add(group.source)
+                else:
+                    r.set("source", "")
+
+            self.text += etree.tostring(g, pretty_print=True).decode()
+            machine.append(g)
+        # [2nd pass] pipes from groups
+
+        # rules
+
+        for rule in self.app.rule_container.rules:
+            r = etree.Element("rule")
+            r.set("source", rule.source_field)
+            r.set("destination", rule.dest_field)
+            for param in rule.comparator_params:
+                p = etree.SubElement(r, "parameter")
+                p.set("symbol", rule.comparator_symbol)
+                p.set("values",str(param))
+            self.text += etree.tostring(r, pretty_print=True).decode()
+            machine.append(r)
+            #self.text += rule.as_string + "\n"
+
+        # categories
+        #self.app.categories is currently a list of CategoryItems
+        for category in self.app.categories:
+            category = category.category
+            c = etree.Element("category")
+            c.set("name", category.name)
+            c.set("color", category.color.hex_l)
+            c.set("rough_amount", str(category.rough_amount))
+            self.text += etree.tostring(c, pretty_print=True).decode()
+            machine.append(c)
+
+        self.text += etree.tostring(machine, pretty_print=True).decode()
+
 class DropDownInput(TextInput):
 
     def __init__(self, preload=None, preload_attr=None, preload_clean=True, **kwargs):
@@ -553,6 +639,10 @@ class RuleContainer(BoxLayout):
                     self.remove_widget(rule)
             except AttributeError as ex:
                 pass
+
+    @property
+    def rules(self):
+        return [rule.rule for rule in self.children if hasattr(rule, 'rule')]
 
 class CategoryItem(BoxLayout):
     def __init__(self, category, **kwargs):
@@ -657,6 +747,10 @@ class CategoryContainer(BoxLayout):
                     self.categories.remove(category)
             except AttributeError as ex:
                 pass
+
+    # @property
+    # def categories(self):
+    #     return [category.category for category in self.children if hasattr(category, 'category')]
 
 class CategoryGenerator(BoxLayout):
     def __init__(self,**kwargs):
@@ -1470,6 +1564,7 @@ class ChecklistApp(App):
         rules_container.add_widget(rule_gen)
         #rule_gen.app = self
         self.rule_gen = rule_gen
+        self.rule_container = rules_layout
         sub_tab.add_widget(rules_container)
         sub_panel.add_widget(sub_tab)
 
@@ -1541,9 +1636,12 @@ class ChecklistApp(App):
             if c.height > thumbnail_container.height:
                 thumbnail_container.image_grid.height = c.height
                 lower_container.height = c.height
-        # tab = TabItem(text="categories",root=root)
-        # tab.add_widget(group_container)
-        # root.add_widget(tab)
+
+        tab = TabItem(text="output",root=root)
+        generated_xml = OutputPreview(self, multiline=True, size_hint=(1,1))
+        tab.add_widget(generated_xml)
+        root.add_widget(tab)
+
         return root
 
 if __name__ == "__main__":
