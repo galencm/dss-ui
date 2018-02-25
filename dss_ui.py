@@ -10,6 +10,8 @@ import functools
 import subprocess
 import operator
 import hashlib
+import os
+import shutil
 from kivy.app import App
 from kivy.lang import Builder
 from kivy.uix.image import Image
@@ -538,6 +540,38 @@ class OutputPreview(TextInput):
             machine.append(c)
 
         self.text += etree.tostring(machine, pretty_print=True).decode()
+        # project dimensions width height depth
+        for h in used_source_hashes:
+            export_source(self.app.thumbnails.children, h, path="/tmp")
+
+        path = "/tmp"
+        machine_root = etree.ElementTree(machine)
+        machine_root.write(os.path.join(path, "machine.xml"), pretty_print=True)
+
+def export_source(images, source_hash, path=None):
+    if path is None:
+        path = ""
+
+    for img in images:
+        try:
+            if source_hash == img.source_hash:
+                file = os.path.join(path, '{}.jpg'.format(source_hash))
+                img.texture.save(file,flipped=False)
+        except Exception as ex:
+            print(ex)
+            pass
+
+    # for sources from redis:
+    # contents = binary_r.get(uuid)
+    # file = io.BytesIO()
+    # file = io.BytesIO(contents)
+    # file.seek(0)
+    # filehash = hashlib.new('sha256')
+    # filehash.update(file.getvalue())
+    # export_to = os.path.join(path, filehash.hexdigest())
+    # print(export_to)
+    # with open(export_to, 'wb') as f:
+    #     shutil.copyfileobj(export_to, f)
 
 class DropDownInput(TextInput):
 
