@@ -456,19 +456,54 @@ class RuleGenerator(BoxLayout):
             if group.name not in [ c.text for c in self.source_fields.children[0].children if hasattr(c, 'text')]:
                 self.source_fields.add_widget(btn)
 
-class OutputPreview(TextInput):
+class OutputPreview(BoxLayout):
     def __init__(self, app, **kwargs):
         self.app = app
+        self.orientation = "vertical"
+        self.output_path = "/tmp"
+        self.path_input = TextInput(text=self.output_path, size_hint_y=None, height=44, multiline=False, font_size=20)
+        self.path_input.bind(on_text_validate=lambda instance: setattr(self, 'output_path', instance.text))
+        self.output_preview = TextInput(text="", multiline=True)
+        self.output_status = TextInput(text="", multiline=True)
+        #self.path_input.bind(on_text_validate=functools.partial(self.on_text_enter))
+        self.export_types = {'xml' : "generated.xml",
+                        'xml+sources(dir)': "generated",
+                        'xml+sources(zipped)': "generated.zip"}
+        self.export_options =  DropDown()
+        self.export_options_selected = Button(text="xml", size_hint_y=None, height=44)
+        for t in self.export_types.keys():
+            btn = Button(text=t, size_hint_y=None, height=44)
+            btn.bind(on_release=self.update_export_options)
+            self.export_options.add_widget(btn)
+        self.export_options_selected.bind(on_release=self.export_options.open)
+        self.export_options.bind(on_select=lambda instance, x: setattr(self.export_options_selected, 'text', x))
+        self.export_button = Button(text="export", size_hint_y=None, height=44)
+        self.export_button.bind(on_release=lambda instance: self.generate_xml(write_output=True, output_type=self.export_options_selected.text))
+        self.export_container = BoxLayout(orientation="horizontal")
+        self.export_container.add_widget(self.export_button)
+        self.export_container.add_widget(self.path_input)
+        self.export_container.add_widget(self.export_options_selected)
+
         super(OutputPreview, self).__init__(**kwargs)
+        self.add_widget(self.export_container)
+        self.add_widget(self.output_preview)
+        self.add_widget(self.output_status)
 
     def on_touch_down(self, touch):
         self.generate_xml()
         return super(OutputPreview, self).on_touch_down(touch)
 
-    def generate_xml(self):
-        # clear existing
-        self.text = ""
+    def update_export_options(self, widget):
+        self.export_options.select(widget.text)
+        dest =  self.export_types[widget.text]
+        self.output_status.text += os.path.join(self.output_path, dest) + "\n"
 
+    def generate_xml(self, write_output=False, output_type=None):
+        # clear existing
+        self.output_preview.text = ""
+
+        if output_type is None:
+            output_type = "xml"
         # possible outputs
         # xml (root <project></project>)
         # xml (root <machine></machine>)
@@ -485,7 +520,7 @@ class OutputPreview(TextInput):
         p = etree.Element("project")
         for k, v in self.app.project.items():
             p.set(k, v)
-        self.text += etree.tostring(p, pretty_print=True).decode()
+        # self.text += etree.tostring(p, pretty_print=True).decode()
         machine.append(p)        
 
         used_source_hashes = set()
@@ -510,7 +545,7 @@ class OutputPreview(TextInput):
                 else:
                     r.set("source", "")
 
-            self.text += etree.tostring(g, pretty_print=True).decode()
+            # self.text += etree.tostring(g, pretty_print=True).decode()
             machine.append(g)
         # [2nd pass] pipes from groups
 
@@ -524,7 +559,7 @@ class OutputPreview(TextInput):
                 p = etree.SubElement(r, "parameter")
                 p.set("symbol", rule.comparator_symbol)
                 p.set("values",str(param))
-            self.text += etree.tostring(r, pretty_print=True).decode()
+            # self.text += etree.tostring(r, pretty_print=True).decode()
             machine.append(r)
             #self.text += rule.as_string + "\n"
 
@@ -536,17 +571,34 @@ class OutputPreview(TextInput):
             c.set("name", category.name)
             c.set("color", category.color.hex_l)
             c.set("rough_amount", str(category.rough_amount))
-            self.text += etree.tostring(c, pretty_print=True).decode()
+            # self.text += etree.tostring(c, pretty_print=True).decode()
             machine.append(c)
 
-        self.text += etree.tostring(machine, pretty_print=True).decode()
+        self.output_preview.text += etree.tostring(machine, pretty_print=True).decode()
         # project dimensions width height depth
-        for h in used_source_hashes:
-            export_source(self.app.thumbnails.children, h, path="/tmp")
+        if write_output is True:
+            machine_root = etree.ElementTree(machine)
+            xml_filename = "generated.xml"
+            if not os.path.isdir(self.output_path):
+                os.mkdir(self.output_path)
 
-        path = "/tmp"
-        machine_root = etree.ElementTree(machine)
-        machine_root.write(os.path.join(path, "machine.xml"), pretty_print=True)
+            if output_type == "xml":
+                machine_root.write(os.path.join(self.output_path, xml_filename), pretty_print=True)
+            elif output_type == "xml+sources(dir)":
+                machine_root.write(os.path.join(self.output_path, xml_filename), pretty_print=True)
+                for h in used_source_hashes:
+                    export_source(self.app.thumbnails.children, h, path=self.output_path)
+            elif output_type == "xml+sources(zipped)":
+                # create a temp directory for material to zip
+                zip_path = "/tmp/generated"
+                if not os.path.isdir(zip_path):
+                    os.mkdir(zip_path)
+                machine_root.write(os.path.join(zip_path, xml_filename), pretty_print=True)
+                for h in used_source_hashes:
+                    export_source(self.app.thumbnails.children, h, path=zip_path)
+
+                #.zip extension will be appended by function
+                shutil.make_archive(os.path.join(self.output_path, 'generated'), 'zip', zip_path)
 
 def export_source(images, source_hash, path=None):
     if path is None:
@@ -1672,7 +1724,7 @@ class ChecklistApp(App):
                 lower_container.height = c.height
 
         tab = TabItem(text="output",root=root)
-        generated_xml = OutputPreview(self, multiline=True, size_hint=(1,1))
+        generated_xml = OutputPreview(self, size_hint=(1,1))
         tab.add_widget(generated_xml)
         root.add_widget(tab)
 
