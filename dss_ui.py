@@ -262,6 +262,22 @@ class Category(object):
         if value is None:
             setattr(self,'name',str(uuid.uuid4()))
 
+class ClickableFileChooserListView(FileChooserListView):
+    def __init__(self, app, **kwargs):
+        self.app = app
+        super(ClickableFileChooserListView, self).__init__(**kwargs)
+
+    def on_submit(self, *args):
+        print(args)
+        try:
+            clicked_file = args[0][0]
+            if clicked_file.endswith(".jpg"):
+                img = self.app.file_binary(clicked_file)
+                self.app.thumbnails.add_widget(img, index=len(self.app.thumbnails.children))
+        except IndexError as ex:
+            print(ex)
+            pass
+
 class GlworbLabel(RecycleDataViewBehavior, ButtonBehavior, Label):
     def __init__(self, **kwargs):
         super(GlworbLabel, self).__init__(**kwargs)
@@ -1344,6 +1360,12 @@ class ChecklistApp(App):
         self.removed_groups = []
         super(ChecklistApp, self).__init__()
 
+    def file_binary(self, filename):
+        data = io.BytesIO()
+        with open(filename, "rb") as f:
+            data = io.BytesIO(f.read())
+        return self.bytes_binary(data.getvalue())
+
     def bytes_binary(self, data):
         # almost same code as bimg_resized
         new_size = self.resize_size
@@ -1607,7 +1629,7 @@ class ChecklistApp(App):
         button_container = BoxLayout(orientation='vertical')
 
         #actions_container.add_widget(slurp_button)
-        files_container.add_widget(FileChooserListView())
+        files_container.add_widget(ClickableFileChooserListView(self))
         groups_container.add_widget(groups_scroll)
 
         tools_container.add_widget(self.project_image_thumbnail)
