@@ -1007,7 +1007,7 @@ class OverlayImage(Image):
         self.app.removed_groups = []
 
 class ClickableImage(Image):
-    def __init__(self, source_hash=None, **kwargs):
+    def __init__(self, source_hash=None, source_path=None, **kwargs):
         self.rows = 0
         self.cols = 0
         self.row_spacing = 100
@@ -1018,6 +1018,7 @@ class ClickableImage(Image):
         self.app = None
         self.resized = False
         self.source_hash = source_hash
+        self.source_path = source_path
         super(ClickableImage, self).__init__(**kwargs)
 
     def resize_window(self, *args):
