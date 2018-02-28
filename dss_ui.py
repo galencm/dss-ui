@@ -1454,6 +1454,7 @@ class ChecklistApp(App):
             filehash.update(file.getvalue())
 
         img = ClickableImage(source_hash=filehash.hexdigest(),
+                             source_path = glworb,
                              allow_stretch=True,
                              keep_ratio=True)
         img.texture = CoreImage(data, ext="jpg", keep_data=True).texture
@@ -1752,6 +1753,13 @@ class ChecklistApp(App):
         root.add_widget(tab)
 
         widgets_to_add = []
+        # add working image to thumbnails
+        widgets_to_add.append(functools.partial(
+                        thumbnail_container.image_grid.add_widget,
+                        self.glworb_binary(glworb=self.working_image.source_path),
+                        index=len(thumbnail_container.image_grid.children))
+                      )
+        # add a few random thumbnails
         for _ in range(2):
             img = self.glworb_binary()
             widgets_to_add.append(functools.partial(
