@@ -268,12 +268,40 @@ class ClickableFileChooserListView(FileChooserListView):
         super(ClickableFileChooserListView, self).__init__(**kwargs)
 
     def on_submit(self, *args):
-        print(args)
         try:
             clicked_file = args[0][0]
+            clicked_file_path = os.path.dirname(clicked_file)
             if clicked_file.endswith(".jpg"):
                 img = self.app.file_binary(clicked_file)
                 self.app.thumbnails.add_widget(img, index=len(self.app.thumbnails.children))
+            elif clicked_file.endswith(".xml"):
+                xml = etree.parse(clicked_file)
+                for record in xml.xpath('//group'):
+                    #<region x="500" y="300" x2="600" y2="400" width="100" height="100" source="20d5fba1ae631fe3358ea57571be781dc971a7420597b55f15cffa46c79fea2d"/>
+                    name = str(record.xpath("./@name")[0])
+                    color = str(record.xpath("./@color")[0])
+                    width = int(float(record.xpath("./@width")[0]))
+                    height = int(float(record.xpath("./@height")[0]))
+                    for region in record.getchildren():
+                        x = int(region.xpath("./@x")[0])
+                        y = int(region.xpath("./@y")[0])
+                        x2 = int(region.xpath("./@x2")[0])
+                        y2 = int(region.xpath("./@y2")[0])
+                        source = region.xpath("./@source")[0]
+                        img = self.app.file_binary(os.path.join(clicked_file_path, "{}.jpg".format(source)))
+                        self.app.thumbnails.add_widget(img, index=len(self.app.thumbnails.children))
+                        # load rectangle selections
+                        group = Group()
+                        group.name = name
+                        group.color = colour.Color(color)
+                        group.source_dimensions = [width, height]
+                        group.source = source
+                        group.regions.append([x, y, x2, y2])
+                        self.app.working_image.group_container.add_group(group)
+                        self.app.working_image.group_container.update_group(group.name)
+                        if group not in self.app.groups:
+                            self.app.groups.append(group)
+                        self.app.working_image.draw_groups()
         except IndexError as ex:
             print(ex)
             pass
