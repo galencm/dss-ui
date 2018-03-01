@@ -996,6 +996,7 @@ class OverlayImage(Image):
                         for x, y, w, h in [group.bounding_rectangle]:
                             if not group.hide:
                                 Rectangle(pos=(x,y), size=(w, h), group=group.name)
+                                Line(rectangle=(0 + group.display_offset_x, 0 + group.display_offset_y, group.source_dimensions[0], group.source_dimensions[1]), width=3, group=group.name)
                             else:
                                 Line(rectangle=(x, y, w, h), width=3, group=group.name)
                     except Exception as ex:
@@ -1046,6 +1047,7 @@ class ClickableImage(Image):
                         for x, y, w, h in [group.bounding_rectangle]:
                             if not group.hide:
                                 Rectangle(pos=(x,y), size=(w, h), group=group.name)
+                                Line(rectangle=(0 + group.display_offset_x, 0 + group.display_offset_y, group.source_dimensions[0], group.source_dimensions[1]), width=3, group=group.name)
                             else:
                                 Line(rectangle=(x, y, w, h), width=3, group=group.name)
                     except Exception as ex:
@@ -1128,8 +1130,13 @@ class ClickableImage(Image):
             group = Group()
             group.name = str(uuid.uuid4())
             group.color = colour.Color(pick_for=group)
-            group.source_dimensions = [self.width, self.height]
+            group.source_dimensions = [w, h]#[self.width, self.height]
             group.source = self.source_hash
+            # since offset changes with image sizes,
+            # store offset in group object so that outline
+            # positions will be correctly drawn in ui
+            group.display_offset_x = self.offset_x
+            group.display_offset_y = self.offset_y
             self.group_container.add_group(group)
 
         Color(128, 128, 128, 0.5)
