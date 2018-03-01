@@ -563,7 +563,8 @@ class OutputPreview(BoxLayout):
 
         p = etree.Element("project")
         for k, v in self.app.project.items():
-            p.set(k, v)
+            if not isinstance(v, dict):
+                p.set(k, str(v))
         # self.text += etree.tostring(p, pretty_print=True).decode()
         machine.append(p)        
 
