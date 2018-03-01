@@ -437,11 +437,11 @@ class RuleGenerator(BoxLayout):
 
         self.create_container.add_widget(Label(text="result", font_size=15, size_hint_y=None, height=44))
         self.create_container.add_widget(self.rule_result)
-        self.create_container.add_widget(Label(text="found in", font_size=15, size_hint_y=None, height=44))
+        self.create_container.add_widget(Label(text="is a", font_size=15, size_hint_y=None, height=44))
         self.create_container.add_widget(self.dest_fields)
-        self.create_container.add_widget(Label(text="is identifiable by region", font_size=15, size_hint_y=None, height=44, text_size=(self.width, None)))
+        self.create_container.add_widget(Label(text="if region", font_size=15, size_hint_y=None, height=44, text_size=(self.width, None)))
         self.create_container.add_widget(source_default)
-        self.create_container.add_widget(Label(text="with characteristics", font_size=15, size_hint_y=None, height=44, text_size=(self.width, None)))
+        self.create_container.add_widget(Label(text="has characteristics", font_size=15, size_hint_y=None, height=44, text_size=(self.width, None)))
         self.create_container.add_widget(comparator_default)
         self.create_container.add_widget(param_container)
 
