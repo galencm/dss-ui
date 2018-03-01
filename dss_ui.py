@@ -571,30 +571,42 @@ class OutputPreview(BoxLayout):
         # groups
         for group in self.app.groups:
             g = etree.Element("group",name=group.name)
+            sequence = etree.Element("sequence",name=group.name)
             g.set("name", group.name)
             g.set("color", group.color.hex_l)
             for dimension_name, dimension in zip(['width','height','depth'], group.source_dimensions):
                 g.set(dimension_name, str(dimension))
             for region in group.regions:
                 r = etree.SubElement(g, "region")
-                r.set("x", str(region[0]))
-                r.set("y", str(region[1]))
-                r.set("x2", str(region[2]))
-                r.set("y2", str(region[3]))
-                r.set("width", str(region[2] - region[0]))
-                r.set("height", str(region[3] - region[1]))
+                x = str(region[0])
+                y = str(region[1])
+                x2 = str(region[2])
+                y2 = str(region[3])
+                width = str(region[2] - region[0])
+                height = str(region[3] - region[1])
+                r.set("x", x)
+                r.set("y", y)
+                r.set("x2", x2)
+                r.set("y2", y2)
+                r.set("width", width)
+                r.set("height", height)
                 if group.source:
                     r.set("source", group.source)
                     used_source_hashes.add(group.source)
                 else:
                     r.set("source", "")
 
-            # self.text += etree.tostring(g, pretty_print=True).decode()
+                # sequences for pipes
+                step = etree.Element("step",call="crop_to_key")
+                for arg, descrip in zip([x, y, width, height, group.name], ["x", "y", "width", "height", "to key"]):
+                    argument = etree.Element("argument", value=str(arg), description=descrip)
+                    step.append(argument)
+                sequence.append(step)
+
             machine.append(g)
-        # [2nd pass] pipes from groups
+            machine.append(sequence)
 
         # rules
-
         for rule in self.app.rule_container.rules:
             r = etree.Element("rule")
             r.set("source", rule.source_field)
