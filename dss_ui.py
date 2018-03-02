@@ -612,6 +612,7 @@ class OutputPreview(BoxLayout):
             r = etree.Element("rule")
             r.set("source", rule.source_field)
             r.set("destination", rule.dest_field)
+            r.set("result", rule.rule_result)
             for param in rule.comparator_params:
                 p = etree.SubElement(r, "parameter")
                 p.set("symbol", rule.comparator_symbol)
