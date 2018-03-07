@@ -49,7 +49,7 @@ import uuid
 import colour
 from ma_cli import data_models
 import visualizations
-
+from lings import ruling, pipeling
 
 r_ip, r_port = data_models.service_connection()
 binary_r = redis.StrictRedis(host=r_ip, port=r_port)
@@ -465,6 +465,73 @@ class RuleGenerator(BoxLayout):
         rule.comparator_params = params
         rule.dest_field = self.dest_fields.text
         rule.rule_result = self.rule_result.text
+
+        # create rule for immediate visualization
+        # of rule applicability
+        r = etree.Element("rule")
+        r.set("source", rule.source_field)
+        r.set("destination", rule.dest_field)
+        r.set("result", rule.rule_result)
+        for param in rule.comparator_params:
+            p = etree.SubElement(r, "parameter")
+            p.set("symbol", rule.comparator_symbol)
+            p.set("values",str(param))
+        # for now, use ruling from lings
+        # would be nice not to have lings as
+        # dependency for ui
+        rule_dsl = ruling.rule_xml2str(etree.tostring(r).decode())
+        ruling.add_rule(rule_dsl, expire=10)
+        # if using regions from image, need to
+        # create pipe(s) too...
+        created_pipes = set()
+        if rule.source_field in [group.name for group in self.app.groups]:
+            group = [group for group in self.app.groups if group.name == rule.source_field][0]
+            for region in group.regions:
+                # need to rescale regions
+                x_scale = group.source_width / group.source_dimensions[0]
+                y_scale = group.source_height / group.source_dimensions[1]
+                upper_left_x = region[0]
+                upper_left_x2 = region[2]
+                upper_left_y = group.source_dimensions[1] - region[1]
+                upper_left_y2 = group.source_dimensions[1] - region[3]
+                # kivy canvas 0,0 is lower left corner
+                # image processing expects 0,0 is upper left corner
+                x = str(int(round(upper_left_x * x_scale)))
+                y = str(int(round(upper_left_y * y_scale)))
+                x2 = str(int(round(upper_left_x2 * x_scale)))
+                y2 = str(int(round(upper_left_y2 * y_scale)))
+                # reverse subtraction order for y 0,0 shift
+                w = str(int(round((upper_left_x2 - upper_left_x) * x_scale)))
+                h = str(int(round((upper_left_y - upper_left_y2) * y_scale)))
+                pipe = {}
+                pipe["x"] = x
+                pipe["y"] = y
+                pipe["w"] = w
+                pipe["h"] = h
+                pipe["key_name"] = rule.source_field
+                # 'p' prefix since textx metamodel ID must start with aA-zZ
+                pipe["pipe_name"] = "p" + hashlib.sha224("{x}{y}{w}{h}".format(**pipe).encode()).hexdigest()
+                pipe_string = "pipe {pipe_name} {{ img_ocr_rectangle {key_name} {x} {y} {w} {h}\n}}".format(**pipe)
+                print("created: " + pipe["pipe_name"])
+                print(pipe_string)
+                pipeling.add_pipe(pipe_string, expire=1000)
+                created_pipes.add(pipe["pipe_name"])
+        # run all thumbnail images through pipe
+        # multiple regions = multiple ocr_rectangles
+        # single pipe or multiple pipes?
+        for thumb in self.app.thumbnails.children:
+            # if source_path is None:
+            # save to bytesio and add as glworb
+            if thumb.source_path:
+                for pipe_name in created_pipes:
+                    print(pipe_name, thumb.source_path)
+                    try:
+                        pipeling.pipe(pipe_name, thumb.source_path, env={"key" : "binary"})
+                    except AttributeError as ex:
+                        print(ex)
+        # display rule.dest_field results on pipe/ruling completion
+
+        print(etree.tostring(r, pretty_print=True).decode())
 
         self.rule_container.add_rule(RuleItem(rule))
 
