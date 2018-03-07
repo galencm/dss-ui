@@ -377,6 +377,21 @@ class ScrollViewer(ScrollView):
 
         return super(ScrollViewer, self).on_touch_down(touch)
 
+class GlworbInfo(BoxLayout):
+    def __init__(self, **kwargs):
+        super(GlworbInfo, self).__init__(**kwargs)
+
+    def update(self, uuid):
+        self.clear_widgets()
+        fields = r.hgetall(uuid)
+        container = BoxLayout(orientation='vertical')
+        for k, v in sorted(fields.items()):
+            bar = BoxLayout(orientation='horizontal')
+            bar.add_widget(TextInput(text=k))
+            bar.add_widget(TextInput(text=v))
+            container.add_widget(bar)
+        self.add_widget(container)
+
 class RuleGenerator(BoxLayout):
     def __init__(self, app, **kwargs):
         self.orientation='vertical'
@@ -1351,6 +1366,10 @@ class ClickableImage(Image):
                 if touch.button == 'left':
                     self.app.working_image.texture = self.texture
                     self.app.working_image.source_hash = self.source_hash
+                    try:
+                        self.app.glworb_info.update(self.source_path)
+                    except AttributeError as ex:
+                        pass
                 elif touch.button == 'right':
                     # easiest multitouch right click involves
                     # right click on thumbnail, then slightly
@@ -1801,6 +1820,13 @@ class ChecklistApp(App):
         self.rule_container = rules_layout
         sub_tab.add_widget(rules_container)
         sub_panel.add_widget(sub_tab)
+
+        sub_tab = TabbedPanelItem(text="info")
+        self.glworb_info = GlworbInfo()
+        sub_tab.add_widget(self.glworb_info)
+        sub_panel.add_widget(sub_tab)
+
+        self.glworb_info.update(self.working_image.source_path)
 
         sub_tab = TabbedPanelItem(text="glworbs")
         glworb_view = GlworbRecycleView()
