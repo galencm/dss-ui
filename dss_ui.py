@@ -1146,6 +1146,8 @@ class ClickableImage(Image):
             group.color = colour.Color(pick_for=group)
             group.source_dimensions = [w, h]#[self.width, self.height]
             group.source = self.source_hash
+            group.source_width = self.source_width
+            group.source_height = self.source_height
             # since offset changes with image sizes,
             # store offset in group object so that outline
             # positions will be correctly drawn in ui
@@ -1314,6 +1316,7 @@ def bimg_resized(uuid, new_size, linking_uuid=None):
     f = io.BytesIO()
     f = io.BytesIO(contents)
     img = PImage.open(f)
+    original_size = img.size
     img.thumbnail((new_size, new_size), PImage.ANTIALIAS)
     extension = img.format
     if linking_uuid:
@@ -1330,7 +1333,7 @@ def bimg_resized(uuid, new_size, linking_uuid=None):
     filehash = hashlib.new('sha256')
     filehash.update(f.getvalue())
 
-    return file, filehash
+    return file, filehash, original_size
 
 class TabItem(TabbedPanelItem):
     def __init__(self, root=None, **kwargs):
@@ -1422,6 +1425,7 @@ class ChecklistApp(App):
         f = io.BytesIO()
         f = io.BytesIO(data)
         img = PImage.open(f)
+        original_size = img.size
         img.thumbnail((new_size, new_size), PImage.ANTIALIAS)
         extension = img.format
         file = io.BytesIO()
@@ -1436,6 +1440,8 @@ class ChecklistApp(App):
                              allow_stretch=True,
                              keep_ratio=True)
         img.texture = CoreImage(file, ext="jpg", keep_data=True).texture
+        img.source_width = original_size[0]
+        img.source_height = original_size[1]
         img.app = self
         return img
 
@@ -1454,13 +1460,14 @@ class ChecklistApp(App):
         filehash = None
 
         try:
-            data, filehash = bimg_resized(data, self.resize_size, linking_uuid=glworb)
+            data, filehash, source_size = bimg_resized(data, self.resize_size, linking_uuid=glworb)
         except OSError as ex:
             print(ex)
             data = None
 
         if not data:
             placeholder = PImage.new('RGB', (self.resize_size, self.resize_size), (155, 155, 155, 1))
+            source_size = (self.resize_size, self.resize_size)
             data_model_string = data_models.pretty_format(r.hgetall(glworb), glworb)
             if not data_model_string:
                 data_model_string = glworb
@@ -1479,6 +1486,7 @@ class ChecklistApp(App):
                              allow_stretch=True,
                              keep_ratio=True)
         img.texture = CoreImage(data, ext="jpg", keep_data=True).texture
+        img.source_width, img.source_height = source_size
         img.app = self
         return img
 
