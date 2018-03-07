@@ -378,7 +378,8 @@ class ScrollViewer(ScrollView):
         return super(ScrollViewer, self).on_touch_down(touch)
 
 class GlworbInfo(BoxLayout):
-    def __init__(self, **kwargs):
+    def __init__(self, app, **kwargs):
+        self.app = app
         super(GlworbInfo, self).__init__(**kwargs)
 
     def update(self, uuid):
@@ -388,7 +389,11 @@ class GlworbInfo(BoxLayout):
         for k, v in sorted(fields.items()):
             bar = BoxLayout(orientation='horizontal')
             bar.add_widget(TextInput(text=k))
-            bar.add_widget(TextInput(text=v))
+            if v in [category.category.name for category in self.app.categories]:
+                category = [category.category for category in self.app.categories if v == category.category.name][0]
+                bar.add_widget(TextInput(text=v, background_color=(*category.color.rgb,1)))
+            else:
+                bar.add_widget(TextInput(text=v))
             container.add_widget(bar)
         self.add_widget(container)
 
@@ -1822,7 +1827,7 @@ class ChecklistApp(App):
         sub_panel.add_widget(sub_tab)
 
         sub_tab = TabbedPanelItem(text="info")
-        self.glworb_info = GlworbInfo()
+        self.glworb_info = GlworbInfo(self)
         sub_tab.add_widget(self.glworb_info)
         sub_panel.add_widget(sub_tab)
 
