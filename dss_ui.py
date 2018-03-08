@@ -1924,6 +1924,10 @@ class ChecklistApp(App):
         root.add_widget(tab)
 
         Clock.schedule_interval(self.recheck_fields, 30)
+        # draw initial grid on working image
+        # using a clock since immediately
+        # drawing results in wrong dimensions
+        Clock.schedule_once(lambda x: self.working_image.draw_grid(), 10)
         return root
 
 if __name__ == "__main__":
