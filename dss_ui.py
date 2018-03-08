@@ -41,6 +41,7 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.accordion import Accordion, AccordionItem
 from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
 from kivy.uix.scrollview import ScrollView
+from kivy.uix.slider import Slider
 from PIL import Image as PImage
 from lxml import etree
 import redis
@@ -1510,6 +1511,22 @@ class ChecklistApp(App):
         self.removed_groups = []
         super(ChecklistApp, self).__init__()
 
+    def grid_input(self, widget, slide_widget):
+        try:
+            value = int(widget.text)
+            self.working_image.row_spacing = value
+            self.working_image.col_spacing = value
+            slide_widget.value = value
+            self.grid_slide(slide_widget, widget)
+        except ValueError as ex:
+            pass
+
+    def grid_slide(self, widget, input_widget):
+        self.working_image.row_spacing = widget.value
+        self.working_image.col_spacing = widget.value
+        input_widget.text = str(widget.value)
+        self.working_image.draw_grid()
+
     def file_binary(self, filename):
         data = io.BytesIO()
         with open(filename, "rb") as f:
@@ -1694,7 +1711,6 @@ class ChecklistApp(App):
         new_attribute.bind(on_text_validate=lambda widget: self.update_project_info(attribute, widget.text))
         parent.add_widget(new_attribute)
 
-
     def recheck_fields(self, dt):
         self.glworb_info.update_current()
 
@@ -1797,7 +1813,19 @@ class ChecklistApp(App):
         tools_container.add_widget(sub_panel)
 
         sub_tab = TabbedPanelItem(text="groups")
-        sub_tab.add_widget(groups_container)
+        b = BoxLayout(orientation='horizontal')
+        slider_container = BoxLayout(orientation='vertical', size_hint_x=None)
+        s = Slider(min=1, max=500, step=5, value=25, size_hint_x=None, orientation="vertical")
+        slider_input = TextInput(size_hint_x=None, size_hint_y=None, multiline=False, height=30)
+        slider_input.text = str(s.value)
+        slider_container.add_widget(Label(text="grid size", size_hint_x=None, size_hint_y=None, height=30))
+        slider_container.add_widget(slider_input)
+        slider_container.add_widget(s)
+        b.add_widget(slider_container)
+        s.bind(on_touch_move=lambda widget, touch:self.grid_slide(widget, slider_input))
+        slider_input.bind(on_text_validate=lambda widget:self.grid_input(widget, s))
+        b.add_widget(groups_container)
+        sub_tab.add_widget(b)
         sub_panel.add_widget(sub_tab)
 
         sub_tab = TabbedPanelItem(text="categories")
