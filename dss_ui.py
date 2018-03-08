@@ -507,7 +507,7 @@ class RuleGenerator(BoxLayout):
         # would be nice not to have lings as
         # dependency for ui
         rule_dsl = ruling.rule_xml2str(etree.tostring(r).decode())
-        ruling.add_rule(rule_dsl, expire=10)
+        ruling.add_rule(rule_dsl, expire=1000)
         # if using regions from image, need to
         # create pipe(s) too...
         created_pipes = set()
@@ -543,6 +543,8 @@ class RuleGenerator(BoxLayout):
                 print(pipe_string)
                 pipeling.add_pipe(pipe_string, expire=1000)
                 created_pipes.add(pipe["pipe_name"])
+        # use raw kwarg to get only rule names
+        all_rules = ruling.get_rules(raw=True)
         # run all thumbnail images through pipe
         # multiple regions = multiple ocr_rectangles
         # single pipe or multiple pipes?
@@ -556,8 +558,12 @@ class RuleGenerator(BoxLayout):
                         pipeling.pipe(pipe_name, thumb.source_path, env={"key" : "binary"})
                     except AttributeError as ex:
                         print(ex)
-        # display rule.dest_field results on pipe/ruling completion
-
+                try:
+                    for rule_name in all_rules:
+                        print(rule_name, thumb.source_path)
+                        ruling.rule(rule_name, thumb.source_path)
+                except Exception as ex:
+                    print(ex)
         print(etree.tostring(r, pretty_print=True).decode())
 
         self.rule_container.add_rule(RuleItem(rule))
