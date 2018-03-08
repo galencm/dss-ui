@@ -1815,7 +1815,7 @@ class ChecklistApp(App):
         sub_tab = TabbedPanelItem(text="groups")
         b = BoxLayout(orientation='horizontal')
         slider_container = BoxLayout(orientation='vertical', size_hint_x=None)
-        s = Slider(min=1, max=500, step=5, value=25, size_hint_x=None, orientation="vertical")
+        s = Slider(min=1, max=500, step=5, value=100, size_hint_x=None, orientation="vertical")
         slider_input = TextInput(size_hint_x=None, size_hint_y=None, multiline=False, height=30)
         slider_input.text = str(s.value)
         slider_container.add_widget(Label(text="grid size", size_hint_x=None, size_hint_y=None, height=30))
