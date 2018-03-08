@@ -1083,6 +1083,10 @@ class GroupContainer(BoxLayout):
                     self.app.removed_groups.append(name)
                     del group.group
                     self.remove_widget(group)
+                    # move into ClickableKImage?
+                    self.app.working_image.geometry = []
+                    self.app.working_image.clear_grid()
+                    self.app.working_image.draw_groups()
             except AttributeError as ex:
                 pass
 
@@ -1378,6 +1382,7 @@ class ClickableImage(Image):
                 if touch.button == 'left':
                     self.app.working_image.texture = self.texture
                     self.app.working_image.source_hash = self.source_hash
+                    self.app.working_image.draw_grid()
                     try:
                         self.app.glworb_info.update(self.source_path)
                     except AttributeError as ex:
