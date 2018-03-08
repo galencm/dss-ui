@@ -380,9 +380,15 @@ class ScrollViewer(ScrollView):
 class GlworbInfo(BoxLayout):
     def __init__(self, app, **kwargs):
         self.app = app
+        self.current_uuid = None
         super(GlworbInfo, self).__init__(**kwargs)
 
+    def update_current(self):
+        if self.current_uuid:
+            self.update(self.current_uuid)
+
     def update(self, uuid):
+        self.current_uuid = uuid
         self.clear_widgets()
         fields = r.hgetall(uuid)
         container = BoxLayout(orientation='vertical')
@@ -1689,6 +1695,9 @@ class ChecklistApp(App):
         parent.add_widget(new_attribute)
 
 
+    def recheck_fields(self, dt):
+        self.glworb_info.update_current()
+
     def build(self):
 
         root = TabbedPanel(do_default_tab=False)
@@ -1914,6 +1923,7 @@ class ChecklistApp(App):
         tab.add_widget(generated_xml)
         root.add_widget(tab)
 
+        Clock.schedule_interval(self.recheck_fields, 30)
         return root
 
 if __name__ == "__main__":
