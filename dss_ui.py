@@ -1846,6 +1846,14 @@ class ChecklistApp(App):
         project_units = DropDownInput(height=44, size_hint_y=None)
         project_units.bind(on_text_validate=lambda widget: self.update_project_info('unit', widget.text))
         dimension_container.add_widget(project_units)
+
+        # load standard dimensions from file/redis and show in dropdown
+        # and pass on code in xml to be handled by other processes
+        dimension_container.add_widget(Label(text="standard:", halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20))
+        project_units = DropDownInput(height=44, size_hint_y=None)
+        project_units.bind(on_text_validate=lambda widget: self.update_project_info('dimensions_code', widget.text))
+        dimension_container.add_widget(project_units)
+
         project_container.add_widget(dimension_container)
 
         custom_container = BoxLayout(orientation="horizontal", size_hint_y=None)
