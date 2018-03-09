@@ -1104,6 +1104,7 @@ class GroupItem(BoxLayout):
     def on_color(self, instance, *args):
         self.group.color.rgb = instance.color[:3]
         self.update_group_display()
+        self.parent.request_redraw()
 
     def on_text_enter(self, instance, *args):
         print(instance.text, args)
