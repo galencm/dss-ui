@@ -13,6 +13,7 @@ import hashlib
 import os
 import shutil
 import roman
+from functools import lru_cache
 from kivy.app import App
 from kivy.lang import Builder
 from kivy.uix.image import Image
@@ -43,6 +44,7 @@ from kivy.uix.accordion import Accordion, AccordionItem
 from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.slider import Slider
+from kivy.graphics.texture import Texture
 from PIL import Image as PImage
 from lxml import etree
 import redis
@@ -1187,6 +1189,8 @@ class ClickableImage(Image):
         self.resized = False
         self.source_hash = source_hash
         self.source_path = source_path
+        self.hidden = False
+        self.hidden_hash = None
         super(ClickableImage, self).__init__(**kwargs)
 
     def resize_window(self, *args):
@@ -1207,6 +1211,31 @@ class ClickableImage(Image):
     def clear_grid(self):
         self.canvas.remove_group('selections')
         self.canvas.remove_group('clicks')
+
+    @lru_cache(maxsize=32)
+    def hidden_texture(self, width, height):
+        texture = Texture.create(size=self.texture_size, colorfmt="rgb")
+        size = self.texture_size[0] * self.texture_size[1] * 3
+        buf = ([bytes(int(x * 255 / size) for x in range(size))])
+        buf = b''.join(buf)
+        texture.blit_buffer(buf, colorfmt='rgb', bufferfmt='ubyte')
+        return texture
+
+    def hide(self):
+        # clicking a thumb may have changed image texture
+        # if has changed, reset hidden status so that toggling
+        # works as expected
+        if self.hidden_hash != self.source_hash:
+            self.hidden = False
+        self.hidden = not self.hidden
+        if self.hidden:
+            self.texture = self.hidden_texture(*self.norm_image_size)
+            self.hidden_hash = self.source_hash
+        else:
+            # retrieve texture from thumbs
+            for thumb in self.app.thumbnails.children:
+                if thumb.source_hash == self.source_hash:
+                    self.texture = thumb.texture
 
     def draw_groups(self):
         with self.canvas:
@@ -1925,9 +1954,12 @@ class ChecklistApp(App):
         slider_container.add_widget(Label(text="grid size", size_hint_x=None, size_hint_y=None, height=30))
         slider_container.add_widget(slider_input)
         slider_container.add_widget(s)
+        hide_working_img = Button(text="hide img", size_hint_x=None, size_hint_y=None, height=30)
+        slider_container.add_widget(hide_working_img)
         b.add_widget(slider_container)
         s.bind(on_touch_move=lambda widget, touch:self.grid_slide(widget, slider_input))
         slider_input.bind(on_text_validate=lambda widget:self.grid_input(widget, s))
+        hide_working_img.bind(on_press=lambda x: self.working_image.hide())
         b.add_widget(groups_container)
         sub_tab.add_widget(b)
         sub_panel.add_widget(sub_tab)
