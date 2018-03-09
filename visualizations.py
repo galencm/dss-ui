@@ -15,6 +15,7 @@ def project_dimensions(project, width=200, height=200, scale=1, filename=None):
     drawn_x = 0
     drawn_y = 0
     figure_spacing = 20
+    fore_shorten = 0.5
 
     # width = width * 2 + depth * 2
 
@@ -33,8 +34,8 @@ def project_dimensions(project, width=200, height=200, scale=1, filename=None):
         d['unit'] = "None"
 
     needed_width = (d['width']* 3) + (d['depth'] * 3) + (figure_spacing * 2) + x_offset
-    # add 20 for caption
-    needed_height = (d['height'] + y_offset + 20)
+    # add 50 for caption
+    needed_height = (d['height'] + (d['depth'] * fore_shorten) + y_offset + 50)
     if width < (needed_width):
         width = int(needed_width)
 
@@ -58,7 +59,6 @@ def project_dimensions(project, width=200, height=200, scale=1, filename=None):
 
     # draw perspective
     # top left angle line
-    fore_shorten = 0.5
     back_upper_left_corner = (x_offset + drawn_x, y_offset)
     fore_upper_left_corner = ((x_offset + drawn_x) + (d['depth'] * fore_shorten), y_offset + (d['depth'] * fore_shorten))
     draw.line([fore_upper_left_corner, back_upper_left_corner])
