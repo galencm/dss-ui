@@ -12,6 +12,7 @@ import operator
 import hashlib
 import os
 import shutil
+import roman
 from kivy.app import App
 from kivy.lang import Builder
 from kivy.uix.image import Image
@@ -902,15 +903,61 @@ class CategoryItem(BoxLayout):
         category_remove = Button(text= "del", font_size=20)
         category_remove.bind(on_press=self.remove_category)
         self.rough_items_input = TextInput(hint_text=str(category.rough_amount), size_hint_x=.2, multiline=False, height=44, size_hint_y=None)
-        self.rough_items_input.bind(on_text_validate=self.update)
+        self.rough_items_input.bind(on_text_validate=self.update_direct)
+
+        # start/end should accept roman numerals too
+        self.rough_items_start_input = TextInput(hint_text=str(category.rough_amount), size_hint_x=.2, multiline=False, height=44, size_hint_y=None)
+        self.rough_items_start_input.bind(on_text_validate=self.update_range)
+        self.rough_items_end_input = TextInput(hint_text=str(category.rough_amount), size_hint_x=.2, multiline=False, height=44, size_hint_y=None)
+        self.rough_items_end_input.bind(on_text_validate=self.update_range)
+
         self.add_widget(category_color_button)
         self.add_widget(category_name)
         self.add_widget(self.rough_items_input)
+        self.add_widget(self.rough_items_start_input)
+        self.add_widget(self.rough_items_end_input)
         self.add_widget(category_remove)
         self.category_color_button = category_color_button
 
     def remove_category(self, *args):
         self.parent.remove_category(self.category.name)
+
+    def update_range(self, widget):
+        # entering enormous values will cause a
+        # stall that is unexplained by ui as the
+        # overview images update
+        value_range = [self.rough_items_start_input.text, self.rough_items_end_input.text]
+
+        for i, value in enumerate(value_range):
+            try:
+                value_range[i] = int(value)
+            except Exception as ex:
+                try:
+                    # must be uppercase for roman module
+                    value_range[i] = roman.fromRoman(value.upper())
+                except Exception as ex:
+                    pass
+
+        try:
+            rough_range = value_range[1] - value_range[0]
+            # turn range backgrounds green to show
+            # that range computation is used
+            self.rough_items_end_input.background_color = (0, 1, 0, 1)
+            self.rough_items_start_input.background_color = (0, 1, 0, 1)
+            self.rough_items_input.text = str(rough_range)
+            self.update(self.rough_items_input)
+        except Exception as ex:
+            print(ex)
+            self.rough_items_end_input.background_color = (1, 0, 0, 1)
+            self.rough_items_start_input.background_color = (1, 0, 0, 1)
+            pass
+
+    def update_direct(self, widget):
+        # turn range backgrounds gray to show
+        # that range input ignored
+        self.rough_items_end_input.background_color = (.6, .6, .6, 1)
+        self.rough_items_start_input.background_color = (.6, .6, .6, 1)
+        self.update(widget)
 
     def update(self,widget):
         self.category.rough_amount = int(widget.text)
