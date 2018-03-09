@@ -1773,6 +1773,8 @@ class ChecklistApp(App):
 
     def update_project_info(self, attribute, value):
         self.project[attribute] = value
+        if attribute == "name":
+            self.project_name_header.text = value
         self.update_project_image()
 
     def add_project_info(self, attribute, parent):
@@ -1816,6 +1818,8 @@ class ChecklistApp(App):
         project_scroll = ScrollView(bar_width=20)
         project_scroll.add_widget(project_container)
 
+        self.project_name_header = Label(text="")
+        project_container.add_widget(self.project_name_header)
         project_container.add_widget(project_dimensions_image)
         project_container.add_widget(project_image)
         name_container.add_widget(project_name_label)
