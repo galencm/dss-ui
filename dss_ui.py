@@ -1724,10 +1724,12 @@ class ChecklistApp(App):
         self.project[attribute] = value
 
     def add_project_info(self, attribute, parent):
-        parent.add_widget(Label(text=attribute, halign="left", height=50, size_hint_y=None, font_size=20))
+        c = BoxLayout(orientation="horizontal", size_hint_y=None)
+        c.add_widget(Label(text=attribute, halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20))
         new_attribute = DropDownInput(height=44, size_hint_y=None)
         new_attribute.bind(on_text_validate=lambda widget: self.update_project_info(attribute, widget.text))
-        parent.add_widget(new_attribute)
+        c.add_widget(new_attribute)
+        parent.add_widget(c)
 
     def recheck_fields(self, dt):
         self.glworb_info.update_current()
@@ -1743,10 +1745,13 @@ class ChecklistApp(App):
         self.thumbnails = thumbnail_container.image_grid
         self.working_image = None
 
+        # horizontal boxlayout, label and input is repetitive
+        # move to function that accepts label text, bind call, ...
         project_container = BoxLayout(orientation='vertical')
+        name_container = BoxLayout(orientation="horizontal", size_hint_y=None)
         project_name = TextInput(text="", multiline=False, height=50, size_hint_y=None, font_size=20)
         project_name.bind(on_text_validate=lambda widget: self.update_project_info('name', widget.text))
-        project_name_label = Label(text="project name:", halign="left", height=50, size_hint_y=None, font_size=20)
+        project_name_label = Label(text="project name:", halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20)
         project_image = Image(size_hint_y=None)
         self.project = {}
         self.project_image = project_image
@@ -1754,29 +1759,38 @@ class ChecklistApp(App):
         self.project_thumbnail_height = 25
         self.project_image_thumbnail = Image(height=self.project_thumbnail_height, size_hint_y=None)
 
-        project_container.add_widget(project_name_label)
-        project_container.add_widget(project_name)
+        project_container.add_widget(project_image)
+        name_container.add_widget(project_name_label)
+        name_container.add_widget(project_name)
+        project_container.add_widget(name_container)
 
-
-        project_container.add_widget(Label(text="width:", halign="left", height=50, size_hint_y=None, font_size=20))
+        width_container = BoxLayout(orientation="horizontal", size_hint_y=None)
+        width_container.add_widget(Label(text="width:", halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20))
         project_width = DropDownInput(height=44, size_hint_y=None)
         project_width.bind(on_text_validate=lambda widget: self.update_project_info('width', widget.text))
-        project_container.add_widget(project_width)
+        width_container.add_widget(project_width)
+        project_container.add_widget(width_container)
 
-        project_container.add_widget(Label(text="height:", halign="left", height=50, size_hint_y=None, font_size=20))
+        height_container = BoxLayout(orientation="horizontal", size_hint_y=None)
+        height_container.add_widget(Label(text="height:", halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20))
         project_height = DropDownInput(height=44, size_hint_y=None)
         project_height.bind(on_text_validate=lambda widget: self.update_project_info('height', widget.text))
-        project_container.add_widget(project_height)
+        height_container.add_widget(project_height)
+        project_container.add_widget(height_container)
 
-        project_container.add_widget(Label(text="depth:", halign="left", height=50, size_hint_y=None, font_size=20))
+        depth_container = BoxLayout(orientation="horizontal", size_hint_y=None)
+        depth_container.add_widget(Label(text="depth:", halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20))
         project_depth = DropDownInput(height=44, size_hint_y=None)
         project_depth.bind(on_text_validate=lambda widget: self.update_project_info('depth', widget.text))
-        project_container.add_widget(project_depth)
+        depth_container.add_widget(project_depth)
+        project_container.add_widget(depth_container)
 
-        project_container.add_widget(Label(text="custom:", halign="left", height=50, size_hint_y=None, font_size=20))
+        custom_container = BoxLayout(orientation="horizontal", size_hint_y=None)
+        custom_container.add_widget(Label(text="custom:", halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20))
         project_depth = DropDownInput(height=44, size_hint_y=None)
         project_depth.bind(on_text_validate=lambda widget: self.add_project_info(widget.text, project_container))
-        project_container.add_widget(project_depth)
+        custom_container.add_widget(project_depth)
+        project_container.add_widget(custom_container)
 
         tab = TabItem(text="overview",root=root)
         tab.add_widget(project_container)
