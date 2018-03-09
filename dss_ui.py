@@ -1763,7 +1763,7 @@ class ChecklistApp(App):
         overview = visualizations.project_overview(self.project, Window.width, 50, orientation='horizontal', color_key=True)[1]
         self.project_image.texture = CoreImage(overview, ext="jpg", keep_data=True).texture
 
-        dimensions = visualizations.project_dimensions(self.project, 300, 300, scale=3)[1]
+        dimensions = visualizations.project_dimensions(self.project, 500, 150, scale=5)[1]
         self.project_dimensions_image.texture = CoreImage(dimensions, ext="jpg", keep_data=True).texture
         self.project_dimensions_image.size = self.project_dimensions_image.texture_size
 
