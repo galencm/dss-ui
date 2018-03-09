@@ -1208,7 +1208,7 @@ class ClickableImage(Image):
                 for col in range(0, w, self.col_spacing):
                     # for line 0 coordinate is bottom of screen?
                     # h (ie entire height) is top...
-                    Line(points=[col + self.offset_x, 0 + self.offset_y, col + self.offset_x, h + self.offset_y], width=1.5, group='grid')
+                    Line(points=[col + self.offset_x, 0 + self.offset_y, col + self.offset_x, h + self.offset_y], width=1, group='grid')
                     # debug from 0,0
                     # Line(points=[0, 0, col + self.offset_x, h + self.offset_y], width=1, group='grid')
 
@@ -1216,7 +1216,7 @@ class ClickableImage(Image):
                 for row in range(0, h, self.row_spacing):
                     #Line(points=[0 + self.offset_x, row, w + self.offset_x, row], width=1, group='grid')
                     # debug from 0,0
-                    Line(points=[0 + self.offset_x, row + self.offset_y, w + self.offset_x, row + self.offset_y], width=1.5, group='grid')
+                    Line(points=[0 + self.offset_x, row + self.offset_y, w + self.offset_x, row + self.offset_y], width=1, group='grid')
                     # Line(points=[0, 0, w + self.offset_x, row], width=1, group='grid')
 
     def draw_geometry(self):
