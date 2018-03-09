@@ -1762,6 +1762,10 @@ class ChecklistApp(App):
         overview = visualizations.project_overview(self.project, Window.width, 50, orientation='horizontal', color_key=True)[1]
         self.project_image.texture = CoreImage(overview, ext="jpg", keep_data=True).texture
 
+        dimensions = visualizations.project_dimensions(self.project, 300, 300, scale=3)[1]
+        self.project_dimensions_image.texture = CoreImage(dimensions, ext="jpg", keep_data=True).texture
+        self.project_dimensions_image.size = self.project_dimensions_image.texture_size
+
     def update_project_thumbnail(self):
         overview_thumbnail = visualizations.project_overview(self.project, int(self.project_image_thumbnail.parent.width), 25, orientation='horizontal', color_key=True)[1]
         self.project_image_thumbnail.texture = CoreImage(overview_thumbnail, ext="jpg", keep_data=True).texture
@@ -1769,6 +1773,7 @@ class ChecklistApp(App):
 
     def update_project_info(self, attribute, value):
         self.project[attribute] = value
+        self.update_project_image()
 
     def add_project_info(self, attribute, parent):
         c = BoxLayout(orientation="horizontal", size_hint_y=None)
@@ -1794,43 +1799,50 @@ class ChecklistApp(App):
 
         # horizontal boxlayout, label and input is repetitive
         # move to function that accepts label text, bind call, ...
-        project_container = BoxLayout(orientation='vertical')
+        project_container = BoxLayout(orientation='vertical', size_hint_y=None, height=800, minimum_height=200)
         name_container = BoxLayout(orientation="horizontal", size_hint_y=None)
         project_name = TextInput(text="", multiline=False, height=50, size_hint_y=None, font_size=20)
         project_name.bind(on_text_validate=lambda widget: self.update_project_info('name', widget.text))
         project_name_label = Label(text="project name:", halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20)
         project_image = Image(size_hint_y=None)
+        project_dimensions_image = Image(size_hint_y=None)
         self.project = {}
         self.project_image = project_image
+        self.project_dimensions_image = project_dimensions_image
         self.update_project_image()
         self.project_thumbnail_height = 25
         self.project_image_thumbnail = Image(height=self.project_thumbnail_height, size_hint_y=None)
 
+        project_scroll = ScrollView(bar_width=20)
+        project_scroll.add_widget(project_container)
+
+        project_container.add_widget(project_dimensions_image)
         project_container.add_widget(project_image)
         name_container.add_widget(project_name_label)
         name_container.add_widget(project_name)
         project_container.add_widget(name_container)
 
-        width_container = BoxLayout(orientation="horizontal", size_hint_y=None)
-        width_container.add_widget(Label(text="width:", halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20))
+        dimension_container = BoxLayout(orientation="horizontal", size_hint_y=None)
+        dimension_container.add_widget(Label(text="width:", halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20))
         project_width = DropDownInput(height=44, size_hint_y=None)
         project_width.bind(on_text_validate=lambda widget: self.update_project_info('width', widget.text))
-        width_container.add_widget(project_width)
-        project_container.add_widget(width_container)
+        dimension_container.add_widget(project_width)
 
-        height_container = BoxLayout(orientation="horizontal", size_hint_y=None)
-        height_container.add_widget(Label(text="height:", halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20))
+        dimension_container.add_widget(Label(text="height:", halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20))
         project_height = DropDownInput(height=44, size_hint_y=None)
         project_height.bind(on_text_validate=lambda widget: self.update_project_info('height', widget.text))
-        height_container.add_widget(project_height)
-        project_container.add_widget(height_container)
+        dimension_container.add_widget(project_height)
 
-        depth_container = BoxLayout(orientation="horizontal", size_hint_y=None)
-        depth_container.add_widget(Label(text="depth:", halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20))
+        dimension_container.add_widget(Label(text="depth:", halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20))
         project_depth = DropDownInput(height=44, size_hint_y=None)
         project_depth.bind(on_text_validate=lambda widget: self.update_project_info('depth', widget.text))
-        depth_container.add_widget(project_depth)
-        project_container.add_widget(depth_container)
+        dimension_container.add_widget(project_depth)
+
+        dimension_container.add_widget(Label(text="units:", halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20))
+        project_units = DropDownInput(height=44, size_hint_y=None)
+        project_units.bind(on_text_validate=lambda widget: self.update_project_info('unit', widget.text))
+        dimension_container.add_widget(project_units)
+        project_container.add_widget(dimension_container)
 
         custom_container = BoxLayout(orientation="horizontal", size_hint_y=None)
         custom_container.add_widget(Label(text="custom:", halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20))
@@ -1840,7 +1852,7 @@ class ChecklistApp(App):
         project_container.add_widget(custom_container)
 
         tab = TabItem(text="overview",root=root)
-        tab.add_widget(project_container)
+        tab.add_widget(project_scroll)
         root.add_widget(tab)
 
         tab = TabItem(text="image",root=root)

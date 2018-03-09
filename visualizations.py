@@ -9,6 +9,90 @@ import uuid
 import functools
 import io
 
+def project_dimensions(project, width=200, height=200, scale=1, filename=None):
+    x_offset = 10
+    y_offset = 10
+    drawn_x = 0
+    drawn_y = 0
+    figure_spacing = 20
+
+    # width = width * 2 + depth * 2
+
+    d = {}
+    for dimension in ['width', 'height', 'depth']:
+        try:
+            d[dimension] = float(project[dimension]) * scale
+            d["unscaled_" + dimension] = float(project[dimension])
+        except Exception as ex:
+            d[dimension]  = 0 * scale
+            d["unscaled_" + dimension]  = 0
+
+    try:
+        d['unit'] = project['unit']
+    except KeyError:
+        d['unit'] = "None"
+
+    needed_width = (d['width']* 3) + (d['depth'] * 3) + (figure_spacing * 2) + x_offset
+    # add 20 for caption
+    needed_height = (d['height'] + y_offset + 20)
+    if width < (needed_width):
+        width = int(needed_width)
+
+    if height < (needed_height):
+        height = int(needed_height)
+
+    dimensions_image = PILImage.new('RGB', (width, height), (155, 155, 155, 255))
+    draw = ImageDraw.Draw(dimensions_image, 'RGBA')
+
+    # landscape layout, use drawn_x to increment figures
+
+    # draw facing
+    draw.rectangle([x_offset + drawn_x, y_offset, x_offset + drawn_x + d['width'], y_offset + d['height']], outline=(255, 255, 255, 255))
+    drawn_x += x_offset + d['width']
+    drawn_x += figure_spacing
+
+    # draw side
+    draw.rectangle([x_offset + drawn_x, y_offset, x_offset + drawn_x + d['depth'], y_offset + d['height']], outline=(255, 255, 255, 255))
+    drawn_x += x_offset + d['depth']
+    drawn_x += figure_spacing
+
+    # draw perspective
+    # top left angle line
+    fore_shorten = 0.5
+    back_upper_left_corner = (x_offset + drawn_x, y_offset)
+    fore_upper_left_corner = ((x_offset + drawn_x) + (d['depth'] * fore_shorten), y_offset + (d['depth'] * fore_shorten))
+    draw.line([fore_upper_left_corner, back_upper_left_corner])
+    # bottom left angle line
+    back_lower_left_corner = (x_offset + drawn_x, y_offset + d['height'])
+    fore_lower_left_corner = ((x_offset + drawn_x) + (d['depth'] * fore_shorten), (y_offset + d['height']) + (d['depth'] * fore_shorten))
+    draw.line([fore_lower_left_corner, back_lower_left_corner])
+    # top right angle line
+    back_upper_right_corner = (x_offset + drawn_x + d['width'], y_offset)
+    fore_upper_right_corner = ((x_offset + drawn_x + d['width']) + (d['depth'] * fore_shorten), y_offset + (d['depth'] * fore_shorten))
+    draw.line([fore_upper_right_corner, back_upper_right_corner])
+    # rear vertical line
+    draw.line([back_upper_left_corner, back_lower_left_corner])
+    # rear horizontal line
+    draw.line([back_upper_left_corner, back_upper_right_corner])
+    # foreground square, front
+    draw.rectangle([fore_upper_left_corner, fore_upper_left_corner[0] + d['width'], fore_upper_left_corner[1] + d['height']], outline=(255, 255, 255, 255))
+    # print dimensions at bottom of figure
+    draw.text([x_offset, y_offset + d['height'] + 10], "{unscaled_width} x {unscaled_depth} x {unscaled_height} \nunits: {unit}".format(**d))
+
+    # dimensions_image.show()
+    if filename:
+        image_filename = '/tmp/{}.jpg'.format(str(uuid.uuid4()))
+        dimensions_image.save(image_filename)
+        filename = image_filename
+
+    file = io.BytesIO()
+    extension = 'JPEG'
+    dimensions_image.save(file, extension)
+    dimensions_image.close()
+    file.seek(0)
+
+    return (filename, file)
+
 def vertical_texture(draw, spacing, top, height, width):
     # draw mutable, so no return
     for space in range(0, width, round(width / spacing)):
