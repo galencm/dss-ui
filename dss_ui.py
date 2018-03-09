@@ -1044,6 +1044,7 @@ class GroupItem(BoxLayout):
                        False: 'hide'}
         self.group.hide = not self.group.hide
         button.text = hide_status[self.group.hide]
+        self.parent.request_redraw()
 
     def remove_group(self, *args):
         self.parent.remove_group(self.group.name)
@@ -1089,12 +1090,12 @@ class GroupContainer(BoxLayout):
                     self.app.removed_groups.append(name)
                     del group.group
                     self.remove_widget(group)
-                    # move into ClickableKImage?
-                    self.app.working_image.geometry = []
-                    self.app.working_image.clear_grid()
-                    self.app.working_image.draw_groups()
+                    self.request_redraw()
             except AttributeError as ex:
                 pass
+
+    def request_redraw(self):
+        self.app.working_image.redraw()
 
 class OverlayImage(Image):
     def __init__(self, app, **kwargs):
@@ -1148,6 +1149,12 @@ class ClickableImage(Image):
             # h = int(h)
             # Window.size = w * 2, h
             self.resized = True
+
+    def redraw(self):
+        self.geometry = []
+        self.clear_grid()
+        self.draw_groups()
+        self.draw_grid()
 
     def clear_grid(self):
         self.canvas.remove_group('selections')
