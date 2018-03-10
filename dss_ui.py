@@ -323,10 +323,22 @@ class GlworbRecycleView(RecycleView):
         self.viewclass = 'GlworbLabel'
 
         super(GlworbRecycleView, self).__init__(**kwargs)
+        self.populate()
+
+    def populate(self):
         self.data = []
         for glworb in data_models.enumerate_data(pattern="glworb:*"):
             self.data.append({'text': str(data_models.pretty_format(r.hgetall(glworb), glworb)), 'glworb' : glworb})
 
+    def filter_view(self, filter_text):
+        if filter_text:
+            self.data = []
+            for glworb in data_models.enumerate_data(pattern="glworb:*"):
+                glworb_text = str(data_models.pretty_format(r.hgetall(glworb), glworb))
+                if filter_text in glworb_text:
+                    self.data.append({'text': glworb_text, 'glworb' : glworb})
+        else:
+            self.populate()
 
 class ScatterTextWidget(BoxLayout):
 
@@ -1966,7 +1978,7 @@ class ChecklistApp(App):
 
         groups_container = BoxLayout(orientation='horizontal')
         files_container = BoxLayout(orientation='horizontal')
-        glworbs_container = BoxLayout(orientation='horizontal')
+        glworbs_container = BoxLayout(orientation='vertical')
         groups_layout = GroupContainer(orientation='vertical', size_hint_y=None, height=self.working_image_height, minimum_height=self.working_image_height)
         groups_layout.app = self
         groups_scroll = ScrollView(bar_width=20)
@@ -2063,8 +2075,11 @@ class ChecklistApp(App):
         self.glworb_info.update(self.working_image.source_path)
 
         sub_tab = TabbedPanelItem(text="glworbs")
+        glworb_filter = TextInput(multiline=False, size_hint_y=None, height=44)
         glworb_view = GlworbRecycleView()
         glworb_view.app = self
+        glworb_filter.bind(on_text_validate=lambda instance: [glworb_view.filter_view(instance.text), setattr(instance, 'background_color', (0, 1, 0, 1)) if instance.text else setattr(instance, 'background_color', (1, 1, 1, 1))])
+        glworbs_container.add_widget(glworb_filter)
         glworbs_container.add_widget(glworb_view)
         sub_tab.add_widget(glworbs_container)
         sub_panel.add_widget(sub_tab)
