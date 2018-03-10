@@ -1076,6 +1076,8 @@ class GroupItem(BoxLayout):
             group_name.bind(on_text_validate=functools.partial(self.on_text_enter))
             group_hide = Button(text="hide", font_size=20)
             group_hide.bind(on_press=self.hide_group)
+            group_redraw = Button(text="redraw", font_size=20)
+            group_redraw.bind(on_press=self.redraw_region)
             group_remove = Button(text= "del", font_size=20)
             group_remove.bind(on_press=self.remove_group)
 
@@ -1083,6 +1085,7 @@ class GroupItem(BoxLayout):
             self.add_widget(group_name)
             self.add_widget(group_region)
             self.add_widget(group_hide)
+            self.add_widget(group_redraw)
             self.add_widget(group_remove)
 
             self.group_region = group_region
@@ -1095,6 +1098,12 @@ class GroupItem(BoxLayout):
         self.group.hide = not self.group.hide
         button.text = hide_status[self.group.hide]
         self.parent.request_redraw()
+
+    def redraw_region(self, *args):
+        # ClickableImage canvas into redraw mode
+        # first click x,y
+        # second click x2, y2
+        self.parent.group_region_redraw(self)
 
     def remove_group(self, *args):
         self.parent.remove_group(self.group.name)
@@ -1149,6 +1158,9 @@ class GroupContainer(BoxLayout):
             except AttributeError as ex:
                 pass
 
+    def group_region_redraw(self, group):
+        self.app.working_image.select_region(group)
+
     def request_redraw(self):
         self.app.working_image.redraw()
 
@@ -1196,6 +1208,9 @@ class ClickableImage(Image):
         self.source_path = source_path
         self.hidden = False
         self.hidden_hash = None
+        self.selection_mode = False
+        self.selection_mode_selections = []
+        self.selection_mode_group = None
         super(ClickableImage, self).__init__(**kwargs)
 
     def resize_window(self, *args):
@@ -1212,6 +1227,12 @@ class ClickableImage(Image):
         self.clear_grid()
         self.draw_groups()
         self.draw_grid()
+
+    def select_region(self, group):
+        self.clear_grid()
+        self.selection_mode = True
+        self.selection_mode_selections = []
+        self.selection_mode_group = group
 
     def clear_grid(self):
         self.canvas.remove_group('selections')
@@ -1314,6 +1335,19 @@ class ClickableImage(Image):
             for rect in self.geometry:
                 x,y,w,h = rect
                 Rectangle(pos=(x,y), size=(w, h),group='selections')
+
+    def draw_selection_click(self, x, y, color=None):
+        # dot color not correct using color kwarg
+        if color is None:
+            color = (128, 128, 128, 0.5)
+        dotsize = 20
+        with self.canvas:
+            Ellipse(pos=(x - (dotsize / 2), y - (dotsize / 2)), size=(dotsize, dotsize), group='clicks', color=color)
+            caption = CoreLabel(text="{} {}".format(int(round(x)), int(round(y))), font_size=20, color=(0, 0, 0, 1))
+            caption.refresh()
+            texture = caption.texture
+            texture_size = list(texture.size)
+            Rectangle(pos=(x,y), texture=texture, size=texture_size, group="clicks")
 
     def draw_grid_click(self, x, y):
         # w, h = self.texture_size
@@ -1468,7 +1502,19 @@ class ClickableImage(Image):
                     elif abs(touch.dsy) > abs(touch.dsx):
                         self.draw_grid_click_line(touch.x, touch.y, "y")
                 elif touch.button == 'left':
-                    self.draw_grid_click(touch.x, touch.y)
+                    if self.selection_mode is True:
+                        self.selection_mode_selections.extend([int(round(touch.x)), int(round(touch.y))])
+                        self.draw_selection_click(touch.x, touch.y, color=(self.selection_mode_group.group.color.rgb, 1))
+                        if len(self.selection_mode_selections) >= 4:
+                            # have enough points to draw rectangle
+                            # set group region(s) and reset/leave selection_mode
+                            self.selection_mode_group.group.regions = [self.selection_mode_selections[:4]]
+                            self.selection_mode_group.update_group_display()
+                            self.selection_mode = False
+                            self.selection_mode_group = None
+                            self.redraw()
+                    else:
+                        self.draw_grid_click(touch.x, touch.y)
                 elif touch.button == 'middle':
                     if abs(touch.dsx) > abs(touch.dsy):
                         self.draw_grid_click_segment(touch.opos[0], touch.opos[1], touch.x, touch.y, "x")
