@@ -394,10 +394,16 @@ class ScrollViewer(ScrollView):
 
         return super(ScrollViewer, self).on_touch_down(touch)
 
+class GlworbInfoCell(ButtonBehavior, TextInput):
+    def __init__(self, **kwargs):
+        #important that ButtonBehavior is before TextInput
+        super(GlworbInfoCell, self).__init__(**kwargs)
+
 class GlworbInfo(BoxLayout):
     def __init__(self, app, **kwargs):
         self.app = app
         self.current_uuid = None
+        self.env_binary_key = None
         super(GlworbInfo, self).__init__(**kwargs)
 
     def update_current(self):
@@ -411,14 +417,27 @@ class GlworbInfo(BoxLayout):
         container = BoxLayout(orientation='vertical')
         for k, v in sorted(fields.items()):
             bar = BoxLayout(orientation='horizontal')
-            bar.add_widget(TextInput(text=k))
+            field = GlworbInfoCell(text=k)
+            bar.add_widget(field)
+            # select the binary field to be passed in the env dictionary
+            # for the pipes
+            field.bind(on_press=lambda widget:  self.set_key(widget))
+            if field.text == self.env_binary_key:
+                field.background_color = (0, 0, 1, 1)
             if v in [category.category.name for category in self.app.categories]:
                 category = [category.category for category in self.app.categories if v == category.category.name][0]
                 bar.add_widget(TextInput(text=v, background_color=(*category.color.rgb,1)))
             else:
                 bar.add_widget(TextInput(text=v))
             container.add_widget(bar)
+        container.add_widget(Label(text="pipe env -> {}".format(str(self.app.pipe_env))))
         self.add_widget(container)
+
+    def set_key(self, widget):
+        self.env_binary_key = widget.text
+        widget.background_color = (0, 0, 1, 1)
+        self.app.pipe_env['key'] = widget.text
+        self.update(self.current_uuid)
 
 class RuleGenerator(BoxLayout):
     def __init__(self, app, **kwargs):
@@ -571,7 +590,8 @@ class RuleGenerator(BoxLayout):
                 for pipe_name in created_pipes:
                     print(pipe_name, thumb.source_path)
                     try:
-                        pipeling.pipe(pipe_name, thumb.source_path, env={"key" : "binary"})
+                        # {"key" : "binary_key"}
+                        pipeling.pipe(pipe_name, thumb.source_path, env=self.app.pipe_env)
                     except AttributeError as ex:
                         print(ex)
                 try:
@@ -1669,7 +1689,7 @@ class ChecklistApp(App):
         self.thumbnail_width = 250
         self.working_image_height = 400
         self.working_image_width = 400
-
+        self.pipe_env = {"key" : "binary_key"}
         self.groups = []
         self.removed_groups = []
         super(ChecklistApp, self).__init__()
