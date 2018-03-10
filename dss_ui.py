@@ -27,6 +27,7 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.scatter import Scatter
 from kivy.uix.scatterlayout import ScatterLayout
 from kivy.uix.label import Label
+from kivy.core.text import Label as CoreLabel
 from kivy.uix.button import Button
 from kivy.uix.colorpicker import ColorPicker
 from kivy.uix.filechooser import FileChooserListView
@@ -1110,7 +1111,11 @@ class GroupItem(BoxLayout):
 
     def on_text_enter(self, instance, *args):
         print(instance.text, args)
+        # add old name to removed_groups to
+        # allow canvas to remove associated draws
+        self.parent.app.removed_groups.append(self.group.name)
         self.group.name = instance.text
+        self.parent.request_redraw()
 
 class GroupContainer(BoxLayout):
     def __init__(self, **kwargs):
@@ -1252,6 +1257,11 @@ class ClickableImage(Image):
                                 Line(rectangle=(0 + group.display_offset_x, 0 + group.display_offset_y, group.source_dimensions[0], group.source_dimensions[1]), width=3, group=group.name)
                             else:
                                 Line(rectangle=(x, y, w, h), width=3, group=group.name)
+                            caption = CoreLabel(text=group.name, font_size=20, color=(0, 0, 0, 1))
+                            caption.refresh()
+                            texture = caption.texture
+                            texture_size = list(texture.size)
+                            Rectangle(pos=(x,y), texture=texture, size=texture_size, group=group.name)
                     except Exception as ex:
                         # None may be returned if no regions in group
                         pass
