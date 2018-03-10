@@ -278,6 +278,7 @@ class ClickableFileChooserListView(FileChooserListView):
             clicked_file_path = os.path.dirname(clicked_file)
             if clicked_file.endswith(".jpg"):
                 img = self.app.file_binary(clicked_file)
+                self.app.thumbs_info.add_thumb(img)
                 self.app.thumbnails.add_widget(img, index=len(self.app.thumbnails.children))
             elif clicked_file.endswith(".xml"):
                 xml = etree.parse(clicked_file)
@@ -294,6 +295,7 @@ class ClickableFileChooserListView(FileChooserListView):
                         y2 = int(region.xpath("./@y2")[0])
                         source = region.xpath("./@source")[0]
                         img = self.app.file_binary(os.path.join(clicked_file_path, "{}.jpg".format(source)))
+                        self.app.thumbs_info.add_thumb(img)
                         self.app.thumbnails.add_widget(img, index=len(self.app.thumbnails.children))
                         # load rectangle selections
                         group = Group()
@@ -416,7 +418,7 @@ class GlworbInfo(BoxLayout):
         fields = r.hgetall(uuid)
         container = BoxLayout(orientation='vertical')
         for k, v in sorted(fields.items()):
-            bar = BoxLayout(orientation='horizontal')
+            bar = BoxLayout(orientation='horizontal', size_hint_y=.1)
             field = GlworbInfoCell(text=k)
             bar.add_widget(field)
             # select the binary field to be passed in the env dictionary
@@ -430,7 +432,7 @@ class GlworbInfo(BoxLayout):
             else:
                 bar.add_widget(TextInput(text=v))
             container.add_widget(bar)
-        container.add_widget(Label(text="pipe env -> {}".format(str(self.app.pipe_env))))
+        container.add_widget(Label(text="pipe env -> {}".format(str(self.app.pipe_env)), size_hint_y=None, height=44))
         self.add_widget(container)
 
     def set_key(self, widget):
@@ -1158,6 +1160,49 @@ class GroupItem(BoxLayout):
         self.group.name = instance.text
         self.parent.request_redraw()
 
+
+class ClickableLabel(ButtonBehavior, Label):
+    def __init__(self, **kwargs):
+        super(ClickableLabel, self).__init__(**kwargs)
+
+class ThumbItem(BoxLayout):
+    def __init__(self, thumb, **kwargs):
+        self.thumb = thumb
+        self.orientation = "horizontal"
+        super(ThumbItem, self).__init__(**kwargs)
+        thumb_label = ClickableLabel(text=self.thumb.source_hash)
+        thumb_label.bind(on_press=lambda widget: self.select())
+        thumb_remove = Button(text="del", font_size=20)
+        thumb_remove.bind(on_press=lambda widget: self.parent.remove_thumb(self))
+        self.add_widget(thumb_label)
+        self.add_widget(thumb_remove)
+
+    def select(self):
+        self.parent.select_thumb(self)
+
+class ThumbContainer(BoxLayout):
+    def __init__(self, app, **kwargs):
+        self.app = app
+        super(ThumbContainer, self).__init__(**kwargs)
+
+    def add_thumb(self, thumb):
+        thumb_widget = ThumbItem(thumb, size_hint_y=None, height=44)
+        self.add_widget(thumb_widget)
+        self.parent.scroll_to(thumb_widget)
+
+    def remove_thumb(self, thumb_item):
+        self.app.remove_from_thumbs(thumb_item.thumb.source_hash)
+        self.remove_widget(thumb_item)
+
+    def select_thumb(self, thumb_item):
+        self.app.change_from_thumb(thumb_item.thumb)
+
+    def center_on(self, thumb):
+        for child in self.children:
+            if child.thumb == thumb:
+                self.parent.scroll_to(child)
+                break
+
 class GroupContainer(BoxLayout):
     def __init__(self, **kwargs):
         super(GroupContainer, self).__init__(**kwargs)
@@ -1294,6 +1339,11 @@ class ClickableImage(Image):
             for thumb in self.app.thumbnails.children:
                 if thumb.source_hash == self.source_hash:
                     self.texture = thumb.texture
+                    try:
+                        self.source_path = thumb.source_path
+                    except AttributeError:
+                        pass
+                    self.source_hash = thumb.source_hash
 
     def draw_groups(self):
         with self.canvas:
@@ -1558,13 +1608,7 @@ class ClickableImage(Image):
                 # clicked image is a thumbnail, update working image
                 # with thumbnail's texture
                 if touch.button == 'left':
-                    self.app.working_image.texture = self.texture
-                    self.app.working_image.source_hash = self.source_hash
-                    self.app.working_image.draw_grid()
-                    try:
-                        self.app.glworb_info.update(self.source_path)
-                    except AttributeError as ex:
-                        pass
+                    self.app.change_working_image(self)
                 elif touch.button == 'right':
                     # easiest multitouch right click involves
                     # right click on thumbnail, then slightly
@@ -1796,11 +1840,36 @@ class ChecklistApp(App):
         if display_widget is None:
             display_widget = self.thumbnails
         img = self.glworb_binary(glworb=glworb_id)
+        self.thumbs_info.add_thumb(img)
         print(img)
         display_widget.add_widget(img)
         img.width = self.thumbnail_width
         img.height = self.thumbnail_height
         display_widget.width += img.width
+
+    def change_from_thumb(self, thumb):
+        self.change_working_image(thumb)
+        self.glworb_info.update(thumb.source_path)
+        self.thumbnails.parent.scroll_to(thumb)
+
+    def remove_from_thumbs(self, thumb_hash):
+        new_thumb_position = 0
+        for i, thumb in enumerate(self.thumbnails.children):
+            if thumb.source_hash == thumb_hash:
+                self.thumbnails.remove_widget(thumb)
+                new_thumb_position = i - 1
+                break
+
+        if self.working_image.source_hash == thumb_hash:
+            try:
+                self.change_working_image(self.thumbnails.children[new_thumb_position])
+            except IndexError:
+                self.working_image.hide()
+
+        try:
+            self.glworb_info.update(self.thumbnails.children[new_thumb_position].source_path)
+        except IndexError:
+            self.glworb_info.update(None)
 
     def add_binaries(self, add_method, output_label, display_widget, *args):
         tmp_output_filename = "/tmp/slurped_{}.jpg".format(str(uuid.uuid4()))
@@ -1828,6 +1897,7 @@ class ChecklistApp(App):
                 for g in glworbs:
                     img = self.glworb_binary(glworb=g)
                     display_widget.add_widget(img)
+                    self.thumbs_info.add_thumb(img)
                     img.width = self.thumbnail_width
                     img.height = self.thumbnail_height
                     display_widget.width += img.width
@@ -1852,6 +1922,7 @@ class ChecklistApp(App):
                 process_feedback = tmp_output_filename
                 img = self.bytes_binary(contents)
                 display_widget.add_widget(img)
+                self.thumbs_info.add_thumb(img)
                 img.width = self.thumbnail_width
                 img.height = self.thumbnail_height
                 display_widget.width += img.width
@@ -1870,6 +1941,7 @@ class ChecklistApp(App):
                 process_feedback = tmp_output_filename
                 img = self.bytes_binary(contents)
                 display_widget.add_widget(img)
+                self.thumbs_info.add_thumb(img)
                 img.width = self.thumbnail_width
                 img.height = self.thumbnail_height
                 display_widget.width += img.width
@@ -1906,6 +1978,20 @@ class ChecklistApp(App):
     def recheck_fields(self, dt):
         self.glworb_info.update_current()
 
+    def change_working_image(self, new):
+        self.working_image.texture = new.texture
+        self.working_image.source_hash = new.source_hash
+        try:
+            self.working_image.source_path = new.source_path
+        except AttributeError:
+            pass
+        self.working_image.draw_grid()
+        try:
+            self.glworb_info.update(new.source_path)
+        except AttributeError as ex:
+            pass
+        self.thumbs_info.center_on(new)
+
     def build(self):
 
         root = TabbedPanel(do_default_tab=False)
@@ -1916,6 +2002,9 @@ class ChecklistApp(App):
         # add_glworb
         self.thumbnails = thumbnail_container.image_grid
         self.working_image = None
+
+        thumbs_layout = ThumbContainer(self, orientation='vertical', size_hint_y=None, height=800, minimum_height=50)
+        self.thumbs_info = thumbs_layout
 
         # horizontal boxlayout, label and input is repetitive
         # move to function that accepts label text, bind call, ...
@@ -2088,8 +2177,13 @@ class ChecklistApp(App):
         sub_panel.add_widget(sub_tab)
 
         sub_tab = TabbedPanelItem(text="info")
-        self.glworb_info = GlworbInfo(self)
-        sub_tab.add_widget(self.glworb_info)
+        info_container = BoxLayout(orientation="vertical")
+        self.glworb_info = GlworbInfo(self, size_hint_y=0.8)
+        info_container.add_widget(self.glworb_info)
+        thumbs_scroll = ScrollView(bar_width=20, size_hint_y=0.3)
+        thumbs_scroll.add_widget(thumbs_layout)
+        info_container.add_widget(thumbs_scroll)
+        sub_tab.add_widget(info_container)
         sub_panel.add_widget(sub_tab)
 
         self.glworb_info.update(self.working_image.source_path)
@@ -2145,14 +2239,17 @@ class ChecklistApp(App):
 
         widgets_to_add = []
         # add working image to thumbnails
+        initial_working_image = self.glworb_binary(glworb=self.working_image.source_path)
+        self.thumbs_info.add_thumb(initial_working_image)
         widgets_to_add.append(functools.partial(
                         thumbnail_container.image_grid.add_widget,
-                        self.glworb_binary(glworb=self.working_image.source_path),
+                        initial_working_image,
                         index=len(thumbnail_container.image_grid.children))
                       )
         # add a few random thumbnails
         for _ in range(2):
             img = self.glworb_binary()
+            self.thumbs_info.add_thumb(img)
             widgets_to_add.append(functools.partial(
                                     thumbnail_container.image_grid.add_widget,
                                     img,
