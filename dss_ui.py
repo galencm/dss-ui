@@ -602,36 +602,29 @@ class RuleGenerator(BoxLayout):
         created_pipes = set()
         if rule.source_field in [group.name for group in self.app.groups]:
             group = [group for group in self.app.groups if group.name == rule.source_field][0]
-            for region in group.regions:
-                # need to rescale regions
-                x_scale = group.source_width / group.source_dimensions[0]
-                y_scale = group.source_height / group.source_dimensions[1]
-                upper_left_x = region[0]
-                upper_left_x2 = region[2]
-                upper_left_y = group.source_dimensions[1] - region[1]
-                upper_left_y2 = group.source_dimensions[1] - region[3]
-                # kivy canvas 0,0 is lower left corner
-                # image processing expects 0,0 is upper left corner
-                x = str(int(round(upper_left_x * x_scale)))
-                y = str(int(round(upper_left_y * y_scale)))
-                x2 = str(int(round(upper_left_x2 * x_scale)))
-                y2 = str(int(round(upper_left_y2 * y_scale)))
-                # reverse subtraction order for y 0,0 shift
-                w = str(int(round((upper_left_x2 - upper_left_x) * x_scale)))
-                h = str(int(round((upper_left_y - upper_left_y2) * y_scale)))
-                pipe = {}
-                pipe["x"] = x
-                pipe["y"] = y
-                pipe["w"] = w
-                pipe["h"] = h
-                pipe["key_name"] = rule.source_field
-                # 'p' prefix since textx metamodel ID must start with aA-zZ
-                pipe["pipe_name"] = "p" + hashlib.sha224("{x}{y}{w}{h}".format(**pipe).encode()).hexdigest()
-                pipe_string = "pipe {pipe_name} {{ img_ocr_rectangle {key_name} {x} {y} {w} {h}\n}}".format(**pipe)
-                print("created: " + pipe["pipe_name"])
-                print(pipe_string)
-                pipeling.add_pipe(pipe_string, expire=1000)
-                created_pipes.add(pipe["pipe_name"])
+            x, y, x2, y2 = group.scaled_bounding_rectangle
+            w = abs(x2 - x)
+            h = abs(y2 - y)
+            pipe = {}
+            pipe["group_name"] = group.name
+            pipe["x"] = x
+            # Problem: subtracted amount is an arbitrary, used until
+            # y axis issues are resolved...
+            # see scaled_bounding_rectangle
+            magic_y = 150
+            pipe["y"] = y - magic_y
+            pipe["w"] = w
+            pipe["h"] = h
+            pipe["key_name"] = rule.source_field
+            # 'p' prefix since textx metamodel ID must start with aA-zZ
+            pipe["pipe_name"] = "p" + hashlib.sha224("{x}{y}{w}{h}".format(**pipe).encode()).hexdigest()
+            # img_ocr_rectangle stalls out the zerorpc connection
+            #pipe_string = "pipe {pipe_name} {{ img_ocr_rectangle {key_name} {x} {y} {w} {h}\n}}".format(**pipe)
+            pipe_string = "pipe {pipe_name} {{ img_crop_to_key {x} {y} {w} {h} {group_name}_rule_test_binary\n img_ocr_key {group_name}_rule_test_binary {key_name}\n}}".format(**pipe)
+            print("created: " + pipe["pipe_name"])
+            print(pipe_string)
+            pipeling.add_pipe(pipe_string, expire=1000)
+            created_pipes.add(pipe["pipe_name"])
         # use raw kwarg to get only rule names
         all_rules = ruling.get_rules(raw=True)
         # run all thumbnail images through pipe
