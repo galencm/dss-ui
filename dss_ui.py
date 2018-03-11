@@ -205,6 +205,58 @@ class Group(object):
         return self.y2 - self.y
     
     @property
+    def scaled_bounding_rectangle(self):
+        # scaled to fullsize with offsets removed
+        # and coordinates shifted to upper left 0,0
+        # Problem: final y axis of rectangle is a little off
+        try:
+            rect = self.region_rectangle()
+            ox = self.display_offset_x
+            oy = self.display_offset_y
+            # remove offsets
+            print("offsets x, y", self.display_offset_x, self.display_offset_y)
+            rect = [rect[0] - ox, rect[1], rect[2] - ox, rect[3]]
+            # get xy scaling
+            x_scale = self.source_width / self.source_dimensions[0]
+            y_scale = self.source_height / self.source_dimensions[1]
+            x = rect[0]
+            y = rect[1]
+            x2 = rect[2]
+            y2 = rect[3]
+            # kivy canvas 0,0 is lower left corner
+            # image processing expects 0,0 is upper left corner
+            x = int(round(x * x_scale))
+            y = int(round(y * y_scale))
+            x2 = int(round(x2 * x_scale))
+            y2 = int(round(y2 * y_scale))
+            # subtract height to go from bottom left 0,0
+            # used by kivy canvas to top left 0,0 used by
+            # pillow, x does not need adjustment
+            h = abs(y2 - y)
+            y -= self.source_height
+            y2 -= self.source_height
+            y = abs(y)
+            y2 = abs(y2)
+            # get width and height to print xywh
+            # use with 'ma-cli image' rectangle command
+            # to debug coordinates
+            w = abs(x2 - x)
+            h = abs(y2 - y)
+            print("scaled rect:", x,y,x2,y2)
+            print("scaled xywh:", x, y, w, h)
+            return [x, y, x2, y2]
+        except TypeError:
+            return None
+
+    @property
+    def scaled_width(self):
+        pass
+
+    @property
+    def scaled_height(self):
+        pass
+
+    @property
     def bounding_rectangle(self):
         #x y w h
         rect = self.region_rectangle()
