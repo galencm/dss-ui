@@ -1981,6 +1981,9 @@ class ChecklistApp(App):
     def change_working_image(self, new):
         self.working_image.texture = new.texture
         self.working_image.source_hash = new.source_hash
+        self.working_image.source_width = new.source_width
+        self.working_image.source_height = new.source_height
+
         try:
             self.working_image.source_path = new.source_path
         except AttributeError:
