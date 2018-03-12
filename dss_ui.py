@@ -449,16 +449,27 @@ class ScrollViewer(ScrollView):
         return super(ScrollViewer, self).on_touch_down(touch)
 
 class GlworbInfoCell(ButtonBehavior, TextInput):
-    def __init__(self, **kwargs):
+    def __init__(self, container, **kwargs):
+        self.container = container
         #important that ButtonBehavior is before TextInput
         super(GlworbInfoCell, self).__init__(**kwargs)
+
+    def on_touch_up(self, touch):
+
+        if touch.button == 'right':
+            self.container.set_key(self)
+        return super().on_touch_up(touch)
 
 class GlworbInfo(BoxLayout):
     def __init__(self, app, **kwargs):
         self.app = app
         self.current_uuid = None
         self.env_binary_key = None
+        self.scroll_container = ScrollView(bar_width=20, size_hint_y=1)
+        self.glworb_container = BoxLayout(orientation='vertical', size_hint_y=None, height=800, minimum_height=200)
         super(GlworbInfo, self).__init__(**kwargs)
+        self.scroll_container.add_widget(self.glworb_container)
+        self.add_widget(self.scroll_container)
 
     def update_current(self):
         if self.current_uuid:
@@ -466,26 +477,91 @@ class GlworbInfo(BoxLayout):
 
     def update(self, uuid):
         self.current_uuid = uuid
-        self.clear_widgets()
+        container = self.glworb_container
+        container.clear_widgets()
         fields = r.hgetall(uuid)
-        container = BoxLayout(orientation='vertical')
         for k, v in sorted(fields.items()):
-            bar = BoxLayout(orientation='horizontal', size_hint_y=.1)
-            field = GlworbInfoCell(text=k)
-            bar.add_widget(field)
+            row = BoxLayout(orientation='horizontal', size_hint_y=.1)
+            field = GlworbInfoCell(container=self, text=k, multiline=False)
+            # use prior_field to delete correct field
+            # even if field text has changed
+            field.prior_field = field.text
+            row.add_widget(field)
             # select the binary field to be passed in the env dictionary
             # for the pipes
-            field.bind(on_press=lambda widget:  self.set_key(widget))
+            #field.bind(on_press=lambda widget:  self.set_key(widget))
+            # remove field:value if field set to ''
+            field.bind(on_text_validate=lambda widget: self.update_field(widget))
+
             if field.text == self.env_binary_key:
                 field.background_color = (0, 0, 1, 1)
             if v in [category.category.name for category in self.app.categories]:
                 category = [category.category for category in self.app.categories if v == category.category.name][0]
-                bar.add_widget(TextInput(text=v, background_color=(*category.color.rgb,1)))
+                field_value = TextInput(text=v, background_color=(*category.color.rgb,1), multiline=False)
+                row.add_widget(field_value)
+                field_value.field = field
+                field_value.bind(on_text_validate=lambda widget: self.update_field_value(widget.field.text, widget.text))
             else:
-                bar.add_widget(TextInput(text=v))
-            container.add_widget(bar)
+                field_value = TextInput(text=v, multiline=False)
+                row.add_widget(field_value)
+                field_value.field = field
+                field_value.bind(on_text_validate=lambda widget: self.update_field_value(widget.field.text, widget.text))
+            container.add_widget(row)
+        container.add_widget(Label(text="add field:value", halign="left", size_hint_y=None, size_hint_x=None, height=44))
+        new_field_name = TextInput(text="", multiline=False)
+        new_field_value = TextInput(text="", multiline=False)
+        new_field_name.bind(on_text_validate=lambda widget: self.add_field(widget, new_field_value))
+        new_field_value.bind(on_text_validate=lambda widget: self.add_field(new_field_name, widget))
+        add_row = BoxLayout(orientation='horizontal', size_hint_y=.1)
+
+        add_row.add_widget(new_field_name)
+        add_row.add_widget(new_field_value)
+        container.add_widget(add_row)
         container.add_widget(Label(text="pipe env -> {}".format(str(self.app.pipe_env)), size_hint_y=None, height=44))
-        self.add_widget(container)
+
+    def add_field(self, name_widget, value_widget):
+        if name_widget.text == "":
+            # name must not be empty
+            # turn textfield background red to indicate
+            name_widget.background_color = (1, 0, 0, 1)
+        else:
+            name_widget.background_color = (1, 1, 1, 1)
+            self.update_field_value(name_widget.text,value_widget.text)
+            name_widget.text = ""
+            value_widget.text = ""
+            self.update(self.current_uuid)
+
+    def update_field(self, widget):
+        field = widget.text
+        prior_field = widget.prior_field
+        if field == "":
+            print("removing field {}".format(widget.prior_field))
+            # remove field if emptied
+            print(data_models.remove_field(widget.prior_field, [self.current_uuid]))
+            self.update(self.current_uuid)
+        else:
+            value=''
+            for row in self.glworb_container.children:
+                for w in row.children:
+                    try:
+                        if w.field == widget:
+                            value = w.text
+                            break
+                    except Exception as ex:
+                        print(ex)
+            print("value is {}".format(value))
+            data_models.add_field(field, [self.current_uuid], values=[value])
+            self.update(self.current_uuid)
+
+    def update_field_value(self, field, value):
+        # add_field will also overwrite existing field
+        print(field, [self.current_uuid], [value])
+        data_models.add_field(field, [self.current_uuid], values=[value])
+        self.update(self.current_uuid)
+
+    def add_field_value(self, field, value):
+        data_models.add_field(field, [self.current_uuid], values=[value])
+        self.update(self.current_uuid)
 
     def set_key(self, widget):
         self.env_binary_key = widget.text
@@ -2226,9 +2302,9 @@ class ChecklistApp(App):
 
         sub_tab = TabbedPanelItem(text="info")
         info_container = BoxLayout(orientation="vertical")
-        self.glworb_info = GlworbInfo(self, size_hint_y=0.8)
+        self.glworb_info = GlworbInfo(self, size_hint_y=0.5)
         info_container.add_widget(self.glworb_info)
-        thumbs_scroll = ScrollView(bar_width=20, size_hint_y=0.3)
+        thumbs_scroll = ScrollView(bar_width=20, size_hint_y=0.5)
         thumbs_scroll.add_widget(thumbs_layout)
         info_container.add_widget(thumbs_scroll)
         sub_tab.add_widget(info_container)
