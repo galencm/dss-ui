@@ -801,9 +801,14 @@ class OutputPreview(BoxLayout):
         dest =  self.export_types[widget.text]
         self.output_status.text += os.path.join(self.output_path, dest) + "\n"
 
-    def generate_xml(self, write_output=False, output_type=None):
+    def generate_xml(self, write_output=False, output_filename=None, output_type=None, output_path=None):
         # clear existing
         self.output_preview.text = ""
+        if output_path is None:
+            output_path = self.output_path
+
+        if output_filename is None:
+            output_filename = "generated.xml"
 
         if output_type is None:
             output_type = "xml"
@@ -825,7 +830,20 @@ class OutputPreview(BoxLayout):
             if not isinstance(v, dict):
                 p.set(k, str(v))
         # self.text += etree.tostring(p, pretty_print=True).decode()
-        machine.append(p)        
+        machine.append(p)
+
+        # session specific things such as working image
+        # loaded thumbnails, etc...
+        # this xml can be used to load previous session
+        # and ignored by other programs
+        s = etree.Element("session")
+        s.set("working_image", self.app.session['working_image'])
+        # set will not be ordered
+        # t = etree.Element("thumbs")
+        for thumb in self.app.session['working_thumbs']:
+            s.append(etree.Element("thumb", source_path=thumb))
+        # s.append(t)
+        machine.append(s)
 
         used_source_hashes = set()
         # groups
@@ -895,16 +913,16 @@ class OutputPreview(BoxLayout):
         # project dimensions width height depth
         if write_output is True:
             machine_root = etree.ElementTree(machine)
-            xml_filename = "generated.xml"
-            if not os.path.isdir(self.output_path):
-                os.mkdir(self.output_path)
+            xml_filename = output_filename
+            if not os.path.isdir(output_path):
+                os.mkdir(output_path)
 
             if output_type == "xml":
-                machine_root.write(os.path.join(self.output_path, xml_filename), pretty_print=True)
+                machine_root.write(os.path.join(output_path, xml_filename), pretty_print=True)
             elif output_type == "xml+sources(dir)":
-                machine_root.write(os.path.join(self.output_path, xml_filename), pretty_print=True)
+                machine_root.write(os.path.join(output_path, xml_filename), pretty_print=True)
                 for h in used_source_hashes:
-                    export_source(self.app.thumbnails.children, h, path=self.output_path)
+                    export_source(self.app.thumbnails.children, h, path=output_path)
             elif output_type == "xml+sources(zipped)":
                 # create a temp directory for material to zip
                 zip_path = "/tmp/generated"
@@ -915,7 +933,7 @@ class OutputPreview(BoxLayout):
                     export_source(self.app.thumbnails.children, h, path=zip_path)
 
                 #.zip extension will be appended by function
-                shutil.make_archive(os.path.join(self.output_path, 'generated'), 'zip', zip_path)
+                shutil.make_archive(os.path.join(output_path, 'generated'), 'zip', zip_path)
 
 def export_source(images, source_hash, path=None):
     if path is None:
@@ -1819,6 +1837,7 @@ class TabItem(TabbedPanelItem):
                         self.root.switch_to(self.parent.children[0], do_scroll=True)
                         break
         elif keycode[1] == 'c' and 'ctrl' in modifiers:
+            self.root.app.save_session()
             App.get_running_app().stop()
         else:
             for i, c in enumerate(self.parent.children):
@@ -1854,10 +1873,22 @@ class ChecklistApp(App):
         self.thumbnail_width = 250
         self.working_image_height = 400
         self.working_image_width = 400
-        self.pipe_env = {"key" : "binary_key"}
+        self.pipe_env = {"key" : "binary_key", "key_prefix" : "binary:"}
         self.groups = []
         self.removed_groups = []
+        self.session = {}
+        self.session_save_path = "~/.config/dss/"
+        self.session_save_filename = "session.xml"
+        # if no previous session, load a few thumbs
+        self.initial_random_thumbs = 2
         super(ChecklistApp, self).__init__()
+
+    def dump_session(self):
+        self.session['working_image'] = self.working_image.source_path
+        for img in self.thumbnails.children:
+            if not 'working_thumbs' in self.session:
+                self.session['working_thumbs'] = set()
+            self.session['working_thumbs'].add(img.source_path)
 
     def grid_input(self, widget, slide_widget):
         try:
@@ -2116,10 +2147,53 @@ class ChecklistApp(App):
             pass
         self.thumbs_info.center_on(new)
 
+    def save_session(self):
+        self.dump_session()
+        # add hook to run on exit()
+        expanded_path = os.path.expanduser(self.session_save_path)
+        if not os.path.isdir(expanded_path):
+            print("creating: {}".format(expanded_path))
+            os.mkdir(expanded_path)
+        print("saving xml")
+        self.xml_generator.generate_xml(write_output=True, output_filename=self.session_save_filename, output_path=expanded_path)
+
+    def load_session(self):
+        session_file = os.path.join(self.session_save_path, self.session_save_filename)
+        session_file = os.path.expanduser(session_file)
+        print(session_file)
+        session_xml = {}
+        if not "working_thumbs" in session_xml:
+            session_xml['working_thumbs'] = set()
+        if os.path.isfile(session_file):
+            xml = etree.parse(session_file)
+            for session in xml.xpath('//session'):
+                session_xml['working_image'] = str(session.xpath("./@working_image")[0])
+                for child in session.getchildren():
+                    try:
+                        session_xml['working_thumbs'].add(child.xpath("./@source_path")[0])
+                    except Exception as ex:
+                        pass
+        print(session_xml)
+        self.session.update(session_xml)
+        # thumbnails should persist
+        # project dict should persist
+
+
+        # groups should persist
+        # rules should persist
+        # categories should persist
+
+        # separate config, but also to be loaded:
+        # colors -> groups
+        # colors -> categories
+        pass
+
     def build(self):
 
+        self.load_session()
         root = TabbedPanel(do_default_tab=False)
         root.tab_width = 200
+        root.app = self
 
         thumbnail_container = ScatterTextWidget()
         # use for recycleview item actions when calling
@@ -2217,7 +2291,15 @@ class ChecklistApp(App):
         groups_scroll = ScrollView(bar_width=20)
         groups_scroll.add_widget(groups_layout)
 
-        img = self.glworb_binary()
+        try:
+            # try to load from session first
+            # glworb only, need to check for filesystem too
+            img = self.glworb_binary(glworb=self.session['working_image'])
+        except Exception as ex:
+            img = self.glworb_binary()
+            self.session['working_image'] = img.source_path
+            self.session['working_thumbs'].add(img.source_path)
+
         self.working_image = img
         img.group_container = groups_layout
 
@@ -2363,22 +2445,35 @@ class ChecklistApp(App):
 
         widgets_to_add = []
         # add working image to thumbnails
-        initial_working_image = self.glworb_binary(glworb=self.working_image.source_path)
-        self.thumbs_info.add_thumb(initial_working_image)
-        widgets_to_add.append(functools.partial(
-                        thumbnail_container.image_grid.add_widget,
-                        initial_working_image,
-                        index=len(thumbnail_container.image_grid.children))
-                      )
-        # add a few random thumbnails
-        for _ in range(2):
-            img = self.glworb_binary()
-            self.thumbs_info.add_thumb(img)
-            widgets_to_add.append(functools.partial(
-                                    thumbnail_container.image_grid.add_widget,
-                                    img,
-                                    index=len(thumbnail_container.image_grid.children))
-                                  )
+        # initial_working_image = self.glworb_binary(glworb=self.working_image.source_path)
+        # self.thumbs_info.add_thumb(initial_working_image)
+        # widgets_to_add.append(functools.partial(
+        #                 thumbnail_container.image_grid.add_widget,
+        #                 initial_working_image,
+        #                 index=len(thumbnail_container.image_grid.children))
+        #               )
+
+        try:
+            for thumb in self.session['working_thumbs']:
+                print("loading thumb: {}".format(thumb))
+                img = self.glworb_binary(glworb=thumb)
+                self.thumbs_info.add_thumb(img)
+                widgets_to_add.append(functools.partial(
+                                        thumbnail_container.image_grid.add_widget,
+                                        img,
+                                        index=len(thumbnail_container.image_grid.children))
+                                      )
+        except Exception as ex:
+            # add a few random thumbnails
+            for _ in range(self.initial_random_thumbs):
+                img = self.glworb_binary()
+                self.thumbs_info.add_thumb(img)
+                widgets_to_add.append(functools.partial(
+                                        thumbnail_container.image_grid.add_widget,
+                                        img,
+                                        index=len(thumbnail_container.image_grid.children))
+                                      )
+
         for widget in widgets_to_add:
             widget()
 
@@ -2396,6 +2491,7 @@ class ChecklistApp(App):
 
         tab = TabItem(text="output",root=root)
         generated_xml = OutputPreview(self, size_hint=(1,1))
+        self.xml_generator = generated_xml
         tab.add_widget(generated_xml)
         root.add_widget(tab)
 
