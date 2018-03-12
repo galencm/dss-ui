@@ -20,6 +20,11 @@ def project_dimensions(project, width=200, height=200, scale=1, filename=None):
     # width = width * 2 + depth * 2
 
     d = {}
+    try:
+        d['name'] = project['name']
+    except KeyError:
+        d['name'] = ""
+
     for dimension in ['width', 'height', 'depth']:
         try:
             d[dimension] = float(project[dimension]) * scale
@@ -77,7 +82,7 @@ def project_dimensions(project, width=200, height=200, scale=1, filename=None):
     # foreground square, front
     draw.rectangle([fore_upper_left_corner, fore_upper_left_corner[0] + d['width'], fore_upper_left_corner[1] + d['height']], outline=(255, 255, 255, 255))
     # print dimensions at bottom of figure
-    draw.text([x_offset, y_offset + d['height'] + 10], "{unscaled_width} x {unscaled_depth} x {unscaled_height} \nunits: {unit}".format(**d))
+    draw.text([x_offset, y_offset + d['height'] + 10], "{unscaled_width} x {unscaled_depth} x {unscaled_height} \nunits: {unit}\ntag: {name}".format(**d))
 
     # dimensions_image.show()
     if filename:
