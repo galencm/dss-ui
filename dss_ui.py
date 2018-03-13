@@ -180,6 +180,11 @@ class Group(object):
     source_dimensions = attr.ib(default=attr.Factory(list))
     source = attr.ib(default="")
 
+    @color.validator
+    def check(self, attribute, value):
+        if value is None:
+            setattr(self,'color', colour.Color(pick_for=self))
+
     @property
     def x(self):
         return self.region_rectangle()[0]
