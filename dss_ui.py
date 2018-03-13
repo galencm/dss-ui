@@ -1890,6 +1890,8 @@ class ChecklistApp(App):
         self.removed_groups = []
         self.project = {}
         self.project_widgets = {}
+        self.objects_to_add = {}
+        self.containers = {}
         self.session = {}
         self.session_save_path = "~/.config/dss/"
         self.session_save_filename = "session.xml"
@@ -2176,6 +2178,7 @@ class ChecklistApp(App):
         session_file = os.path.expanduser(session_file)
         print(session_file)
         session_xml = {}
+        project_xml = {}
         if not "working_thumbs" in session_xml:
             session_xml['working_thumbs'] = set()
         if os.path.isfile(session_file):
@@ -2184,23 +2187,83 @@ class ChecklistApp(App):
                 session_xml['working_image'] = str(session.xpath("./@working_image")[0])
                 for child in session.getchildren():
                     try:
-                        session_xml['working_thumbs'].add(child.xpath("./@source_path")[0])
+                        session_xml['working_thumbs'].add(str(child.xpath("./@source_path")[0]))
                     except Exception as ex:
                         pass
+
+            for project in xml.xpath('//project'):
+                for attribute in project.attrib:
+                    project_xml[attribute] = project.get(attribute)
+
+                for group in project.xpath('//group'):
+                    g = Group()
+                    ### placeholder values, need to properly
+                    ### encode in xml
+                    g.display_offset_x = 0
+                    g.display_offset_y = 0
+                    g.source_dimensions = [1, 1]
+                    g.source_width = 1
+                    g.source_height = 1
+                    ###
+                    for attribute in group.attrib:
+                        try:
+                            if attribute == "color":
+                                setattr(g, attribute, colour.Color(group.get(attribute)))
+                            else:
+                                setattr(g, attribute, group.get(attribute))
+                        except Exception as ex:
+                            print(ex)
+                            print(attribute, group.get(attribute))
+
+                    for region in xml.xpath('//region'):
+                        x = int(region.xpath("./@x")[0])
+                        y= int(region.xpath("./@y")[0])
+                        w = int(region.xpath("./@width")[0])
+                        h = int(region.xpath("./@height")[0])
+                        g.regions.append([x, y, x + w, y + h])
+
+                        # store dimensions in thumb and lookup via group source?
+                        #g.source_dimensions = (int(region.xpath("./@width"), int(region.xpath("./@width")))
+                    if "group" not in self.objects_to_add:
+                        self.objects_to_add['group'] = []
+                    self.objects_to_add['group'].append(g)
+
+                for rule in project.xpath('//rule'):
+                    r = Rule()
+                    r.source_field = str(rule.xpath("./@source")[0])
+                    r.dest_field = str(rule.xpath("./@destination")[0])
+                    r.rule_result = str(rule.xpath("./@result")[0])
+                    # does not handle multiple parameters
+                    for parameter in rule.xpath('//parameter'):
+                        r.comparator_symbol = str(parameter.xpath("./@symbol")[0])
+                        r.comparator_params = [str(parameter.xpath("./@values")[0])]
+
+                    if "rule" not in self.objects_to_add:
+                        self.objects_to_add['rule'] = []
+                    self.objects_to_add['rule'].append(r)
+
+                for category in project.xpath('//category'):
+                    c = Category(name = str(category.xpath("./@name")[0]),
+                                 color = colour.Color(str(category.xpath("./@color")[0])),
+                                 rough_amount = int(category.xpath("./@rough_amount")[0]))
+
+                    if "category" not in self.objects_to_add:
+                        self.objects_to_add['category'] = []
+                    self.objects_to_add['category'].append(c)
+
+
         print(session_xml)
+        print(project_xml)
+
+        # update the session dictionary
         self.session.update(session_xml)
-        # thumbnails should persist
-        # project dict should persist
 
-
-        # groups should persist
-        # rules should persist
-        # categories should persist
+        # update the project dictionary
+        self.project.update(project_xml)
 
         # separate config, but also to be loaded:
         # colors -> groups
         # colors -> categories
-        pass
 
     def create_project_widgets(self, name, parent, reference_dict):
         # create input widgets for project attributes
@@ -2502,6 +2565,24 @@ class ChecklistApp(App):
         self.xml_generator = generated_xml
         tab.add_widget(generated_xml)
         root.add_widget(tab)
+
+        for k, v in self.objects_to_add.items():
+            if k == 'group':
+                for g in v:
+                    self.containers['group'].add_group(g)
+                    if g not in self.groups:
+                        self.groups.append(g)
+            elif k == 'rule':
+                for r in v:
+                    # inconsistent with add_group which handles Item
+                    self.containers['rule'].add_rule(RuleItem(r))
+            elif k == 'category':
+                for c in v:
+                    self.containers['category'].add_category(c)
+
+        # call to update thumbnails and project image using
+        # loaded categories if any
+        self.containers['category'].update()
 
         Clock.schedule_interval(self.recheck_fields, 30)
         # draw initial grid on working image
