@@ -1075,7 +1075,9 @@ class CategoryItem(BoxLayout):
     def __init__(self, category, **kwargs):
         self.category = category
         super(CategoryItem, self).__init__(**kwargs)
-        category.color = colour.Color(pick_for=category)
+        # loaded categories may already have a color
+        if category.color is None:
+            category.color = colour.Color(pick_for=category)
         self.category_color = self.category.color.rgb
         category_color_button = Button(text= "", background_normal='', font_size=20)
         category_color_button.bind(on_press=self.pick_color)
