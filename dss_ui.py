@@ -1884,6 +1884,8 @@ class ChecklistApp(App):
         self.pipe_env = {"key" : "binary_key", "key_prefix" : "binary:"}
         self.groups = []
         self.removed_groups = []
+        self.project = {}
+        self.project_widgets = {}
         self.session = {}
         self.session_save_path = "~/.config/dss/"
         self.session_save_filename = "session.xml"
@@ -2196,7 +2198,37 @@ class ChecklistApp(App):
         # colors -> categories
         pass
 
+    def create_project_widgets(self, name, parent, reference_dict):
+        # create input widgets for project attributes
+        try:
+            input_fill_text = self.project[name]
+        except KeyError:
+            input_fill_text = ""
+
+        widgets = BoxLayout(orientation="horizontal", size_hint_y=None)
+        label_widget = Label(text="{}:".format(name), halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20)
+        input_widget = TextInput(text=input_fill_text, multiline=False, height=50, size_hint_y=None, font_size=20)
+        input_widget.bind(on_text_validate=lambda widget: self.update_project_info(name, widget.text))
+        widgets.add_widget(label_widget)
+        widgets.add_widget(input_widget)
+        parent.add_widget(widgets)
+        # set to input widget since that will have
+        # text updated on load...
+        reference_dict[name] = input_widget
+
     def build(self):
+
+        groups_layout = GroupContainer(orientation='vertical', size_hint_y=None, height=self.working_image_height, minimum_height=self.working_image_height)
+        groups_layout.app = self
+        self.containers['group']= groups_layout
+
+        categories_layout = CategoryContainer(orientation='vertical', size_hint_y=None, height=self.working_image_height, minimum_height=self.working_image_height)
+        categories_layout.app = self
+        self.containers['category']= categories_layout
+
+        rules_layout = RuleContainer(orientation='vertical', size_hint_y=None, height=self.working_image_height, minimum_height=self.working_image_height)
+        rules_layout.app = self
+        self.containers['rule']= rules_layout
 
         self.load_session()
         root = TabbedPanel(do_default_tab=False)
@@ -2214,14 +2246,11 @@ class ChecklistApp(App):
 
         # horizontal boxlayout, label and input is repetitive
         # move to function that accepts label text, bind call, ...
-        project_container = BoxLayout(orientation='vertical', size_hint_y=None, height=800, minimum_height=200)
+        project_container = BoxLayout(orientation='vertical', size_hint_y=None, height=1200, minimum_height=200)
         name_container = BoxLayout(orientation="horizontal", size_hint_y=None)
-        project_name = TextInput(text="", multiline=False, height=50, size_hint_y=None, font_size=20)
-        project_name.bind(on_text_validate=lambda widget: self.update_project_info('name', widget.text))
-        project_name_label = Label(text="project name:", halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20)
+
         project_image = Image(size_hint_y=None)
         project_dimensions_image = Image(size_hint_y=None)
-        self.project = {}
         self.project_image = project_image
         self.project_dimensions_image = project_dimensions_image
         self.update_project_image()
@@ -2235,39 +2264,13 @@ class ChecklistApp(App):
         project_container.add_widget(self.project_name_header)
         project_container.add_widget(project_dimensions_image)
         project_container.add_widget(project_image)
-        name_container.add_widget(project_name_label)
-        name_container.add_widget(project_name)
-        project_container.add_widget(name_container)
 
-        dimension_container = BoxLayout(orientation="horizontal", size_hint_y=None)
-        dimension_container.add_widget(Label(text="width:", halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20))
-        project_width = DropDownInput(height=44, size_hint_y=None)
-        project_width.bind(on_text_validate=lambda widget: self.update_project_info('width', widget.text))
-        dimension_container.add_widget(project_width)
-
-        dimension_container.add_widget(Label(text="height:", halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20))
-        project_height = DropDownInput(height=44, size_hint_y=None)
-        project_height.bind(on_text_validate=lambda widget: self.update_project_info('height', widget.text))
-        dimension_container.add_widget(project_height)
-
-        dimension_container.add_widget(Label(text="depth:", halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20))
-        project_depth = DropDownInput(height=44, size_hint_y=None)
-        project_depth.bind(on_text_validate=lambda widget: self.update_project_info('depth', widget.text))
-        dimension_container.add_widget(project_depth)
-
-        dimension_container.add_widget(Label(text="units:", halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20))
-        project_units = DropDownInput(height=44, size_hint_y=None)
-        project_units.bind(on_text_validate=lambda widget: self.update_project_info('unit', widget.text))
-        dimension_container.add_widget(project_units)
-
-        # load standard dimensions from file/redis and show in dropdown
-        # and pass on code in xml to be handled by other processes
-        dimension_container.add_widget(Label(text="standard:", halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20))
-        project_units = DropDownInput(height=44, size_hint_y=None)
-        project_units.bind(on_text_validate=lambda widget: self.update_project_info('dimensions_code', widget.text))
-        dimension_container.add_widget(project_units)
-
-        project_container.add_widget(dimension_container)
+        self.create_project_widgets("name", project_container, self.project_widgets)
+        self.create_project_widgets("width", project_container, self.project_widgets)
+        self.create_project_widgets("height", project_container, self.project_widgets)
+        self.create_project_widgets("depth", project_container, self.project_widgets)
+        self.create_project_widgets("units", project_container, self.project_widgets)
+        self.create_project_widgets("standard", project_container, self.project_widgets)
 
         custom_container = BoxLayout(orientation="horizontal", size_hint_y=None)
         custom_container.add_widget(Label(text="custom:", halign="left", height=50, size_hint_y=None, size_hint_x=None, font_size=20))
@@ -2294,8 +2297,6 @@ class ChecklistApp(App):
         groups_container = BoxLayout(orientation='horizontal')
         files_container = BoxLayout(orientation='horizontal')
         glworbs_container = BoxLayout(orientation='vertical')
-        groups_layout = GroupContainer(orientation='vertical', size_hint_y=None, height=self.working_image_height, minimum_height=self.working_image_height)
-        groups_layout.app = self
         groups_scroll = ScrollView(bar_width=20)
         groups_scroll.add_widget(groups_layout)
 
@@ -2356,8 +2357,6 @@ class ChecklistApp(App):
         sub_panel.add_widget(sub_tab)
 
         sub_tab = TabbedPanelItem(text="categories")
-        categories_layout = CategoryContainer(orientation='vertical', size_hint_y=None, height=self.working_image_height, minimum_height=self.working_image_height)
-        categories_layout.app = self
         categories_scroll = ScrollView(bar_width=20)
         categories_scroll.add_widget(categories_layout)
 
@@ -2373,9 +2372,6 @@ class ChecklistApp(App):
         sub_panel.add_widget(sub_tab)
 
         sub_tab = TabbedPanelItem(text="rules")
-
-        rules_layout = RuleContainer(orientation='vertical', size_hint_y=None, height=self.working_image_height, minimum_height=self.working_image_height)
-        rules_layout.app = self
         rules_scroll = ScrollView(bar_width=20)
         rules_scroll.add_widget(rules_layout)
 
