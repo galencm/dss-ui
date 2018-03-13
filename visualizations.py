@@ -252,6 +252,13 @@ def project_overview(project, width, height, filename=None, orientation='horizon
         horizontal_padding = 10
         for color_name, color_value in color_keys.items():
             draw.rectangle((x_start, y_start ,x_start + color_block_size, y_start + color_block_size),fill=color_value)
+            # ensure that color name is string
+            # was running into difficulty with lxml
+            # that in most cases will be treated as string
+            # but not here
+            # > print(color_name, type(color_name))
+            # > 'bar' <class 'lxml.etree._ElementUnicodeResult'>
+            color_name = str(color_name)
             text = draw.text((x_start + color_block_size, y_start), color_name)
             text_width = draw.textsize(color_name)[0]
             print(y_start, height, color_key_padding)
