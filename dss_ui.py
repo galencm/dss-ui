@@ -1504,7 +1504,11 @@ class ClickableImage(Image):
                         for x, y, w, h in [group.bounding_rectangle]:
                             if not group.hide:
                                 Rectangle(pos=(x,y), size=(w, h), group=group.name)
-                                Line(rectangle=(0 + group.display_offset_x, 0 + group.display_offset_y, group.source_dimensions[0], group.source_dimensions[1]), width=3, group=group.name)
+                                # try to draw source dimension rectangle
+                                try:
+                                    Line(rectangle=(0 + group.display_offset_x, 0 + group.display_offset_y, group.source_dimensions[0], group.source_dimensions[1]), width=3, group=group.name)
+                                except:
+                                    pass
                             else:
                                 Line(rectangle=(x, y, w, h), width=3, group=group.name)
                             caption = CoreLabel(text=group.name, font_size=20, color=(0, 0, 0, 1))
