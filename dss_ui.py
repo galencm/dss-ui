@@ -13,6 +13,7 @@ import hashlib
 import os
 import shutil
 import roman
+import atexit
 from functools import lru_cache
 from kivy.app import App
 from kivy.lang import Builder
@@ -2508,6 +2509,6 @@ class ChecklistApp(App):
         return root
 
 if __name__ == "__main__":
-    ChecklistApp().run()    
-
-
+    app = ChecklistApp()
+    atexit.register(app.save_session)
+    app.run()
