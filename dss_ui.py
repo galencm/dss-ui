@@ -811,7 +811,7 @@ class OutputPreview(BoxLayout):
         dest =  self.export_types[widget.text]
         self.output_status.text += os.path.join(self.output_path, dest) + "\n"
 
-    def generate_xml(self, write_output=False, output_filename=None, output_type=None, output_path=None):
+    def generate_xml(self, write_output=False, output_filename=None, output_type=None, output_path=None, generate_preview=True):
         # clear existing
         self.output_preview.text = ""
         if output_path is None:
@@ -925,7 +925,8 @@ class OutputPreview(BoxLayout):
             # self.text += etree.tostring(c, pretty_print=True).decode()
             machine.append(c)
 
-        self.output_preview.text += etree.tostring(machine, pretty_print=True).decode()
+        if generate_preview is True:
+            self.output_preview.text += etree.tostring(machine, pretty_print=True).decode()
         # project dimensions width height depth
         if write_output is True:
             machine_root = etree.ElementTree(machine)
@@ -1924,7 +1925,7 @@ class TabItem(TabbedPanelItem):
                         self.root.switch_to(self.parent.children[0], do_scroll=True)
                         break
         elif keycode[1] == 'c' and 'ctrl' in modifiers:
-            self.root.app.save_session()
+            # self.root.app.save_session()
             App.get_running_app().stop()
         else:
             for i, c in enumerate(self.parent.children):
@@ -2246,7 +2247,7 @@ class ChecklistApp(App):
             print("creating: {}".format(expanded_path))
             os.mkdir(expanded_path)
         print("saving xml")
-        self.xml_generator.generate_xml(write_output=True, output_filename=self.session_save_filename, output_path=expanded_path)
+        self.xml_generator.generate_xml(write_output=True, output_filename=self.session_save_filename, output_path=expanded_path, generate_preview=False)
 
     def load_session(self):
         session_file = os.path.join(self.session_save_path, self.session_save_filename)
