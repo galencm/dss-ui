@@ -934,6 +934,9 @@ class OutputPreview(BoxLayout):
             if not os.path.isdir(output_path):
                 os.mkdir(output_path)
 
+            if os.path.isfile(os.path.join(output_path, output_filename)):
+                os.remove(os.path.join(output_path, output_filename))
+
             if output_type == "xml":
                 machine_root.write(os.path.join(output_path, xml_filename), pretty_print=True)
             elif output_type == "xml+sources(dir)":
