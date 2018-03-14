@@ -1223,6 +1223,13 @@ class CategoryItem(BoxLayout):
         old_name = self.category.name
         self.category.name = instance.text
         self.parent.updated_category_name(old_name, self.category.name)
+        try:
+            if self.category.name in self.parent.app.defaults['category']:
+                self.category.color = colour.Color(self.parent.app.defaults['category'][self.category.name])
+                self.category_color_button.background_color = (*self.category.color.rgb, 1)
+                self.parent.update()
+        except Exception as ex:
+            pass
 
 class CategoryContainer(BoxLayout):
     def __init__(self, **kwargs):
@@ -1384,6 +1391,12 @@ class GroupItem(BoxLayout):
         # allow canvas to remove associated draws
         self.parent.app.removed_groups.append(self.group.name)
         self.group.name = instance.text
+        try:
+            if self.group.name in self.parent.app.defaults['group']:
+                self.group.color = colour.Color(self.parent.app.defaults['group'][self.group.name])
+                self.update_group_display()
+        except Exception as ex:
+            pass
         self.parent.request_redraw()
 
 
@@ -2242,8 +2255,87 @@ class ChecklistApp(App):
             pass
         self.thumbs_info.center_on(new)
 
+    def save_defaults(self, output_filename=None, output_path=None):
+
+        if output_filename is None:
+            output_filename = "defaults.xml"
+
+        if output_path is None:
+            output_path = os.path.expanduser(self.session_save_path)
+
+        output_file = os.path.join(output_path, output_filename)
+        defaults = etree.Element("defaults")
+        saved_names = {}
+        saved_names["group"] = []
+        saved_names["category"] = []
+
+        for group in self.groups:
+            default = etree.Element("default", type="group", name=group.name, color=group.color.hex_l)
+            defaults.append(default)
+            saved_names["group"].append(group.name)
+
+        for category in self.categories:
+            default = etree.Element("default", type="category", name=category.category.name, color=category.category.color.hex_l)
+            defaults.append(default)
+            saved_names["category"].append(category.category.name)
+
+        # defaults
+        try:
+            for group_name, group_color in self.defaults["group"].items():
+                default = etree.Element("default", type="group", name=group_name, color=group_color)
+                if group_name not in saved_names["group"]:
+                    defaults.append(default)
+        except KeyError:
+            pass
+
+        try:
+            for category_name, category_color in self.defaults["category"].items():
+                default = etree.Element("default", type="category", name=category_name, color=category_color)
+                if category_name not in saved_names["category"]:
+                    defaults.append(default)
+        except KeyError:
+            pass
+
+        defaults_root = etree.ElementTree(defaults)
+        xml_filename = output_filename
+
+        if not os.path.isdir(output_path):
+            os.mkdir(output_path)
+
+        print("saving defaults {} to {}".format(output_filename, output_path))
+        defaults_root.write(output_file, pretty_print=True)
+
+    def load_defaults(self, filename=None, path=None):
+        # names will be available in dropdowns
+        # if name is entered with matching color
+        # set color to default
+        self.defaults = {}
+        if filename is None:
+            filename = "defaults.xml"
+
+        if path is None:
+            path = os.path.expanduser(self.session_save_path)
+
+        defaults_file = os.path.join(path, filename)
+        defaults = {}
+        if os.path.isfile(defaults_file):
+            xml = etree.parse(defaults_file)
+            for default in xml.xpath('//default'):
+                default_type = str(default.xpath("./@type")[0])
+                default_name = str(default.xpath("./@name")[0])
+                default_color = str(default.xpath("./@color")[0])
+
+                if default_type not in defaults:
+                    defaults[default_type] = {}
+                defaults[default_type][default_name] = default_color
+        # load category colors & names
+        # load group colors & names
+        # load dropdowns with names
+        self.defaults.update(defaults)
+
     def save_session(self):
         self.dump_session()
+        self.save_defaults()
         # add hook to run on exit()
         expanded_path = os.path.expanduser(self.session_save_path)
         if not os.path.isdir(expanded_path):
@@ -2253,6 +2345,7 @@ class ChecklistApp(App):
         self.xml_generator.generate_xml(write_output=True, output_filename=self.session_save_filename, output_path=expanded_path, generate_preview=False)
 
     def load_session(self):
+        self.load_defaults()
         session_file = os.path.join(self.session_save_path, self.session_save_filename)
         session_file = os.path.expanduser(session_file)
         print(session_file)
