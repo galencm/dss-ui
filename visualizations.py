@@ -121,8 +121,20 @@ def project_overview(project, width, height, filename=None, orientation='horizon
             coloring = {}
 
     sequence_steps = []
+    sequence_order = []
+
     try:
-        for k,v in project['categories'].items():
+        sequence_order = [k for k,v in sorted(project['order'].items(), key=lambda x: x[1])]
+    except KeyError:
+        try:
+            sequence_order = project['categories'].keys()
+        except KeyError:
+            pass
+
+    try:
+        #for k,v in project['categories'].items():
+        for k in sequence_order:
+            v = project['categories'][k]
             for step in range(v):
                 sequence_steps.append(k)
     except KeyError:

@@ -319,6 +319,8 @@ class Category(object):
     color = attr.ib(default=None)
     name = attr.ib(default=None)
     rough_amount = attr.ib(default=0)
+    # rough_order could be negative float
+    rough_order = attr.ib(default=None)
     # set name to random uuid if none supplied
     @name.validator
     def check(self, attribute, value):
@@ -912,6 +914,7 @@ class OutputPreview(BoxLayout):
             c.set("name", category.name)
             c.set("color", category.color.hex_l)
             c.set("rough_amount", str(category.rough_amount))
+            c.set("rough_order", str(category.rough_order))
             # self.text += etree.tostring(c, pretty_print=True).decode()
             machine.append(c)
 
@@ -1082,6 +1085,11 @@ class CategoryItem(BoxLayout):
         category_color_button = Button(text= "", background_normal='', font_size=20)
         category_color_button.bind(on_press=self.pick_color)
         category_color_button.background_color = (*self.category_color, 1)
+
+        # rough order: floats, positive or negative
+        self.rough_order_input = TextInput(hint_text=str(category.rough_order), size_hint_x=.2, multiline=False, height=44, size_hint_y=None)
+        self.rough_order_input.bind(on_text_validate=self.update_order)
+
         category_name = TextInput(text=self.category.name, multiline=False, font_size=20, background_color=(.6, .6, .6, 1))
         category_name.bind(on_text_validate=functools.partial(self.on_text_enter))
         category_remove = Button(text= "del", font_size=20)
@@ -1096,6 +1104,7 @@ class CategoryItem(BoxLayout):
         self.rough_items_end_input.bind(on_text_validate=self.update_range)
 
         self.add_widget(category_color_button)
+        self.add_widget(self.rough_order_input)
         self.add_widget(category_name)
         self.add_widget(self.rough_items_input)
         self.add_widget(self.rough_items_start_input)
@@ -1143,6 +1152,14 @@ class CategoryItem(BoxLayout):
         self.rough_items_start_input.background_color = (.6, .6, .6, 1)
         self.update(widget)
 
+    def update_order(self, widget):
+        try:
+            self.category.rough_order = float(widget.text)
+            self.parent.reorder_widgets()
+            self.parent.update()
+        except Exception as ex:
+            pass
+
     def update(self,widget):
         self.category.rough_amount = int(widget.text)
         self.parent.update()
@@ -1183,6 +1200,8 @@ class CategoryContainer(BoxLayout):
             self.app.project['categories'] = {}
         if 'palette' not in self.app.project:
             self.app.project['palette'] = {}
+        if 'order' not in self.app.project:
+            self.app.project['order'] = {}
 
         for c in self.children:
             if c.category.name not in self.app.project['categories']:
@@ -1191,7 +1210,12 @@ class CategoryContainer(BoxLayout):
             if c.category.name not in self.app.project['palette']:
                 self.app.project['palette'][c.category.name] = {}
 
+            if c.category.name not in self.app.project['order']:
+                self.app.project['order'][c.category.name] = 0
+
             self.app.project['categories'][c.category.name] = c.category.rough_amount
+            self.app.project['order'][c.category.name] = c.category.rough_order
+
             # colour rgb produces r g bvalues between 0 - 1
             # pillow uses rgb ints 0 -255 instead of floats
             # so pass hex value and let visualize.py convert
@@ -1201,10 +1225,22 @@ class CategoryContainer(BoxLayout):
         self.app.update_project_thumbnail()
 
     def add_category(self, category):
+        if category.rough_order is None:
+            category.rough_order = float(len(self.children))
         c = CategoryItem(category, height=50, size_hint_y=None)
-        self.add_widget(c)
+        self.add_widget(c, int(category.rough_order))
+
         self.categories.add(c)
         self.parent.scroll_to(c)
+        self.reorder_widgets()
+
+    def reorder_widgets(self):
+        b = self.children.copy()
+        self.clear_widgets()
+        b.sort(key=lambda widget: widget.category.rough_order)
+        print(b)
+        for d in b:
+            self.add_widget(d, int(d.category.rough_order))
 
     def remove_category(self, name):
         for category in self.children:
@@ -2243,9 +2279,14 @@ class ChecklistApp(App):
                     self.objects_to_add['rule'].append(r)
 
                 for category in project.xpath('//category'):
+                    try:
+                        rough_order = float(category.xpath("./@rough_order")[0])
+                    except:
+                        rough_order = 0
                     c = Category(name = str(category.xpath("./@name")[0]),
                                  color = colour.Color(str(category.xpath("./@color")[0])),
-                                 rough_amount = int(category.xpath("./@rough_amount")[0]))
+                                 rough_amount = int(category.xpath("./@rough_amount")[0]),
+                                 rough_order = rough_order)
 
                     if "category" not in self.objects_to_add:
                         self.objects_to_add['category'] = []
@@ -2589,6 +2630,8 @@ class ChecklistApp(App):
         # using a clock since immediately
         # drawing results in wrong dimensions
         Clock.schedule_once(lambda x: self.working_image.draw_grid(), 10)
+        Clock.schedule_once(lambda x: self.update_project_thumbnail(), 10)
+
         return root
 
 if __name__ == "__main__":
