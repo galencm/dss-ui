@@ -319,6 +319,8 @@ class Category(object):
     color = attr.ib(default=None)
     name = attr.ib(default=None)
     rough_amount = attr.ib(default=0)
+    rough_amount_start = attr.ib(default=None)
+    rough_amount_end = attr.ib(default=None)
     # rough_order could be negative float
     rough_order = attr.ib(default=None)
     # set name to random uuid if none supplied
@@ -914,6 +916,11 @@ class OutputPreview(BoxLayout):
             c.set("name", category.name)
             c.set("color", category.color.hex_l)
             c.set("rough_amount", str(category.rough_amount))
+            try:
+                c.set("rough_amount_start", str(category.rough_amount_start))
+                c.set("rough_amount_end", str(category.rough_amount_end))
+            except Exception as ex:
+                pass
             c.set("rough_order", str(category.rough_order))
             # self.text += etree.tostring(c, pretty_print=True).decode()
             machine.append(c)
@@ -1087,20 +1094,31 @@ class CategoryItem(BoxLayout):
         category_color_button.background_color = (*self.category_color, 1)
 
         # rough order: floats, positive or negative
-        self.rough_order_input = TextInput(hint_text=str(category.rough_order), size_hint_x=.2, multiline=False, height=44, size_hint_y=None)
+        self.rough_order_input = TextInput(text=str(category.rough_order), size_hint_x=.2, multiline=False, height=44, size_hint_y=None)
         self.rough_order_input.bind(on_text_validate=self.update_order)
 
         category_name = TextInput(text=self.category.name, multiline=False, font_size=20, background_color=(.6, .6, .6, 1))
         category_name.bind(on_text_validate=functools.partial(self.on_text_enter))
         category_remove = Button(text= "del", font_size=20)
         category_remove.bind(on_press=self.remove_category)
-        self.rough_items_input = TextInput(hint_text=str(category.rough_amount), size_hint_x=.2, multiline=False, height=44, size_hint_y=None)
+        self.rough_items_input = TextInput(text=str(category.rough_amount), size_hint_x=.2, multiline=False, height=44, size_hint_y=None)
         self.rough_items_input.bind(on_text_validate=self.update_direct)
 
         # start/end should accept roman numerals too
-        self.rough_items_start_input = TextInput(hint_text=str(category.rough_amount), size_hint_x=.2, multiline=False, height=44, size_hint_y=None)
+        # show as text if int or roman numeral, otherwise
+        # show as hint_text
+        if self.is_int(category.rough_amount_start) or self.is_roman(category.rough_amount_start):
+            self.rough_items_start_input = TextInput(text=str(category.rough_amount_start), size_hint_x=.2, multiline=False, height=44, size_hint_y=None)
+        else:
+            self.rough_items_start_input = TextInput(hint_text=str(category.rough_amount_start), size_hint_x=.2, multiline=False, height=44, size_hint_y=None)
+
         self.rough_items_start_input.bind(on_text_validate=self.update_range)
-        self.rough_items_end_input = TextInput(hint_text=str(category.rough_amount), size_hint_x=.2, multiline=False, height=44, size_hint_y=None)
+
+        if self.is_int(category.rough_amount_end) or self.is_roman(category.rough_amount_end):
+            self.rough_items_end_input = TextInput(text=str(category.rough_amount_end), size_hint_x=.2, multiline=False, height=44, size_hint_y=None)
+        else:
+            self.rough_items_end_input = TextInput(hint_text=str(category.rough_amount_end), size_hint_x=.2, multiline=False, height=44, size_hint_y=None)
+
         self.rough_items_end_input.bind(on_text_validate=self.update_range)
 
         self.add_widget(category_color_button)
@@ -1111,6 +1129,21 @@ class CategoryItem(BoxLayout):
         self.add_widget(self.rough_items_end_input)
         self.add_widget(category_remove)
         self.category_color_button = category_color_button
+        self.update_range(self.rough_items_end_input)
+
+    def is_int(self, value):
+        try:
+            int(value)
+            return True
+        except:
+            return False
+
+    def is_roman(self, value):
+        try:
+            roman.fromRoman(value.upper())
+            return True
+        except:
+            return False
 
     def remove_category(self, *args):
         self.parent.remove_category(self.category.name)
@@ -1138,12 +1171,13 @@ class CategoryItem(BoxLayout):
             self.rough_items_end_input.background_color = (0, 1, 0, 1)
             self.rough_items_start_input.background_color = (0, 1, 0, 1)
             self.rough_items_input.text = str(rough_range)
+            self.category.rough_amount_start = self.rough_items_start_input.text
+            self.category.rough_amount_end = self.rough_items_end_input.text
+
             self.update(self.rough_items_input)
         except Exception as ex:
-            print(ex)
             self.rough_items_end_input.background_color = (1, 0, 0, 1)
             self.rough_items_start_input.background_color = (1, 0, 0, 1)
-            pass
 
     def update_direct(self, widget):
         # turn range backgrounds gray to show
@@ -1162,7 +1196,12 @@ class CategoryItem(BoxLayout):
 
     def update(self,widget):
         self.category.rough_amount = int(widget.text)
-        self.parent.update()
+        # during initial run to set amount colors
+        # widget may not have parent
+        try:
+            self.parent.update()
+        except AttributeError:
+            pass
 
     def pick_color(self,*args):
         color_picker = ColorPickerPopup()
@@ -2287,6 +2326,11 @@ class ChecklistApp(App):
                                  color = colour.Color(str(category.xpath("./@color")[0])),
                                  rough_amount = int(category.xpath("./@rough_amount")[0]),
                                  rough_order = rough_order)
+                    try:
+                        c.rough_amount_start = category.xpath("./@rough_amount_start")[0]
+                        c.rough_amount_end = category.xpath("./@rough_amount_end")[0]
+                    except Exception as ex:
+                        pass
 
                     if "category" not in self.objects_to_add:
                         self.objects_to_add['category'] = []
