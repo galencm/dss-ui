@@ -780,8 +780,9 @@ class OutputPreview(BoxLayout):
         self.output_status = TextInput(text="", multiline=True)
         #self.path_input.bind(on_text_validate=functools.partial(self.on_text_enter))
         self.export_types = {'xml' : "generated.xml",
-                        'xml+sources(dir)': "generated",
-                        'xml+sources(zipped)': "generated.zip"}
+                             'xml->pub' : "project:<project-name>",
+                             'xml+sources(dir)': "generated",
+                             'xml+sources(zipped)': "generated.zip"}
         self.export_options =  DropDown()
         self.export_options_selected = Button(text="xml", size_hint_y=None, height=44)
         for t in self.export_types.keys():
@@ -939,6 +940,10 @@ class OutputPreview(BoxLayout):
 
             if output_type == "xml":
                 machine_root.write(os.path.join(output_path, xml_filename), pretty_print=True)
+            elif output_type == "xml->pub":
+                key_name = "project:{}".format(self.app.project['name'])
+                redis_conn.set(key_name, etree.tostring(machine_root.getroot(), encoding='utf8', method='xml'))
+                #redis_conn.publish(key_name)
             elif output_type == "xml+sources(dir)":
                 machine_root.write(os.path.join(output_path, xml_filename), pretty_print=True)
                 for h in used_source_hashes:
