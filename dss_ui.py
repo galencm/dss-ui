@@ -54,7 +54,7 @@ import attr
 import uuid
 import colour
 from ma_cli import data_models
-import visualizations
+from ma_wip import visualizations
 from lings import ruling, pipeling
 
 r_ip, r_port = data_models.service_connection()

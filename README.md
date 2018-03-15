@@ -3,6 +3,7 @@
 _domain specific structures_
 
 ```
+pip3 install git+https://github.com/galencm/machinic-wip --user
 python3 dss_ui.py --size=1500x800
 ```
 
