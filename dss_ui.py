@@ -59,7 +59,7 @@ from lings import ruling, pipeling
 
 r_ip, r_port = data_models.service_connection()
 binary_r = redis.StrictRedis(host=r_ip, port=r_port)
-r = redis.StrictRedis(host=r_ip, port=r_port, decode_responses=True)
+redis_conn = redis.StrictRedis(host=r_ip, port=r_port, decode_responses=True)
 
 Config.read('config.ini')
 
@@ -392,13 +392,13 @@ class GlworbRecycleView(RecycleView):
     def populate(self):
         self.data = []
         for glworb in data_models.enumerate_data(pattern="glworb:*"):
-            self.data.append({'text': str(data_models.pretty_format(r.hgetall(glworb), glworb)), 'glworb' : glworb})
+            self.data.append({'text': str(data_models.pretty_format(redis_conn.hgetall(glworb), glworb)), 'glworb' : glworb})
 
     def filter_view(self, filter_text):
         if filter_text:
             self.data = []
             for glworb in data_models.enumerate_data(pattern="glworb:*"):
-                glworb_text = str(data_models.pretty_format(r.hgetall(glworb), glworb))
+                glworb_text = str(data_models.pretty_format(redis_conn.hgetall(glworb), glworb))
                 if filter_text in glworb_text:
                     self.data.append({'text': glworb_text, 'glworb' : glworb})
         else:
@@ -489,7 +489,7 @@ class GlworbInfo(BoxLayout):
         self.current_uuid = uuid
         container = self.glworb_container
         container.clear_widgets()
-        fields = r.hgetall(uuid)
+        fields = redis_conn.hgetall(uuid)
         for k, v in sorted(fields.items()):
             row = BoxLayout(orientation='horizontal', size_hint_y=.1)
             field = GlworbInfoCell(container=self, text=k, multiline=False)
@@ -1888,7 +1888,7 @@ def bimg_resized(uuid, new_size, linking_uuid=None):
     img.thumbnail((new_size, new_size), PImage.ANTIALIAS)
     extension = img.format
     if linking_uuid:
-        data_model_string = data_models.pretty_format(r.hgetall(linking_uuid), linking_uuid)
+        data_model_string = data_models.pretty_format(redis_conn.hgetall(linking_uuid), linking_uuid)
         # escape braces
         data_model_string = data_model_string.replace("{","{{")
         data_model_string = data_model_string.replace("}","}}")
@@ -2053,7 +2053,7 @@ class ChecklistApp(App):
             glworb = random.choice(data_models.enumerate_data(pattern="glworb:*"))
 
         for bkey in binary_keys:
-            data = r.hget(glworb, bkey)
+            data = redis_conn.hget(glworb, bkey)
             if data:
                 print("{} has data".format(bkey))
                 break
@@ -2069,7 +2069,7 @@ class ChecklistApp(App):
         if not data:
             placeholder = PImage.new('RGB', (self.resize_size, self.resize_size), (155, 155, 155, 1))
             source_size = (self.resize_size, self.resize_size)
-            data_model_string = data_models.pretty_format(r.hgetall(glworb), glworb)
+            data_model_string = data_models.pretty_format(redis_conn.hgetall(glworb), glworb)
             if not data_model_string:
                 data_model_string = glworb
             placeholder = data_models.img_overlay(placeholder, data_model_string, 50, 50, 12)
