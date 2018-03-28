@@ -14,6 +14,7 @@ import os
 import shutil
 import roman
 import atexit
+import argparse
 from functools import lru_cache
 from kivy.app import App
 from kivy.lang import Builder
@@ -2351,93 +2352,105 @@ class ChecklistApp(App):
 
     def load_session(self):
         self.load_defaults()
-        session_file = os.path.join(self.session_save_path, self.session_save_filename)
-        session_file = os.path.expanduser(session_file)
-        print(session_file)
+        files_to_restore = []
+
+        if self.restore_session is True:
+            session_file = os.path.join(self.session_save_path, self.session_save_filename)
+            session_file = os.path.expanduser(session_file)
+            files_to_restore.append(session_file)
+
+        for file in self.xml_files_to_load:
+            files_to_restore.append(file)
+
         session_xml = {}
         project_xml = {}
+
         if not "working_thumbs" in session_xml:
             session_xml['working_thumbs'] = set()
-        if os.path.isfile(session_file):
-            xml = etree.parse(session_file)
-            for session in xml.xpath('//session'):
-                session_xml['working_image'] = str(session.xpath("./@working_image")[0])
-                for child in session.getchildren():
-                    try:
-                        session_xml['working_thumbs'].add(str(child.xpath("./@source_path")[0]))
-                    except Exception as ex:
-                        pass
 
-            for project in xml.xpath('//project'):
-                for attribute in project.attrib:
-                    project_xml[attribute] = project.get(attribute)
+        for file in files_to_restore:
+            if os.path.isfile(file):
+                try:
+                    xml = etree.parse(file)
+                    for session in xml.xpath('//session'):
+                        session_xml['working_image'] = str(session.xpath("./@working_image")[0])
+                        for child in session.getchildren():
+                            try:
+                                session_xml['working_thumbs'].add(str(child.xpath("./@source_path")[0]))
+                            except Exception as ex:
+                                pass
 
-                for group in project.xpath('//group'):
-                    g = Group()
-                    ### placeholder values, need to properly
-                    ### encode in xml
-                    g.display_offset_x = 0
-                    g.display_offset_y = 0
-                    g.source_dimensions = [1, 1]
-                    g.source_width = 1
-                    g.source_height = 1
-                    ###
-                    for attribute in group.attrib:
-                        try:
-                            if attribute == "color":
-                                setattr(g, attribute, colour.Color(group.get(attribute)))
-                            else:
-                                setattr(g, attribute, group.get(attribute))
-                        except Exception as ex:
-                            print(ex)
-                            print(attribute, group.get(attribute))
+                    for project in xml.xpath('//project'):
+                        for attribute in project.attrib:
+                            project_xml[attribute] = project.get(attribute)
 
-                    for region in xml.xpath('//region'):
-                        x = int(region.xpath("./@x")[0])
-                        y= int(region.xpath("./@y")[0])
-                        w = int(region.xpath("./@width")[0])
-                        h = int(region.xpath("./@height")[0])
-                        g.regions.append([x, y, x + w, y + h])
+                        for group in project.xpath('//group'):
+                            g = Group()
+                            ### placeholder values, need to properly
+                            ### encode in xml
+                            g.display_offset_x = 0
+                            g.display_offset_y = 0
+                            g.source_dimensions = [1, 1]
+                            g.source_width = 1
+                            g.source_height = 1
+                            ###
+                            for attribute in group.attrib:
+                                try:
+                                    if attribute == "color":
+                                        setattr(g, attribute, colour.Color(group.get(attribute)))
+                                    else:
+                                        setattr(g, attribute, group.get(attribute))
+                                except Exception as ex:
+                                    print(ex)
+                                    print(attribute, group.get(attribute))
 
-                        # store dimensions in thumb and lookup via group source?
-                        #g.source_dimensions = (int(region.xpath("./@width"), int(region.xpath("./@width")))
-                    if "group" not in self.objects_to_add:
-                        self.objects_to_add['group'] = []
-                    self.objects_to_add['group'].append(g)
+                            for region in xml.xpath('//region'):
+                                x = int(region.xpath("./@x")[0])
+                                y= int(region.xpath("./@y")[0])
+                                w = int(region.xpath("./@width")[0])
+                                h = int(region.xpath("./@height")[0])
+                                g.regions.append([x, y, x + w, y + h])
 
-                for rule in project.xpath('//rule'):
-                    r = Rule()
-                    r.source_field = str(rule.xpath("./@source")[0])
-                    r.dest_field = str(rule.xpath("./@destination")[0])
-                    r.rule_result = str(rule.xpath("./@result")[0])
-                    # does not handle multiple parameters
-                    for parameter in rule.xpath('//parameter'):
-                        r.comparator_symbol = str(parameter.xpath("./@symbol")[0])
-                        r.comparator_params = [str(parameter.xpath("./@values")[0])]
+                                # store dimensions in thumb and lookup via group source?
+                                #g.source_dimensions = (int(region.xpath("./@width"), int(region.xpath("./@width")))
+                            if "group" not in self.objects_to_add:
+                                self.objects_to_add['group'] = []
+                            self.objects_to_add['group'].append(g)
 
-                    if "rule" not in self.objects_to_add:
-                        self.objects_to_add['rule'] = []
-                    self.objects_to_add['rule'].append(r)
+                        for rule in project.xpath('//rule'):
+                            r = Rule()
+                            r.source_field = str(rule.xpath("./@source")[0])
+                            r.dest_field = str(rule.xpath("./@destination")[0])
+                            r.rule_result = str(rule.xpath("./@result")[0])
+                            # does not handle multiple parameters
+                            for parameter in rule.xpath('//parameter'):
+                                r.comparator_symbol = str(parameter.xpath("./@symbol")[0])
+                                r.comparator_params = [str(parameter.xpath("./@values")[0])]
 
-                for category in project.xpath('//category'):
-                    try:
-                        rough_order = float(category.xpath("./@rough_order")[0])
-                    except:
-                        rough_order = 0
-                    c = Category(name = str(category.xpath("./@name")[0]),
-                                 color = colour.Color(str(category.xpath("./@color")[0])),
-                                 rough_amount = int(category.xpath("./@rough_amount")[0]),
-                                 rough_order = rough_order)
-                    try:
-                        c.rough_amount_start = category.xpath("./@rough_amount_start")[0]
-                        c.rough_amount_end = category.xpath("./@rough_amount_end")[0]
-                    except Exception as ex:
-                        pass
+                            if "rule" not in self.objects_to_add:
+                                self.objects_to_add['rule'] = []
+                            self.objects_to_add['rule'].append(r)
 
-                    if "category" not in self.objects_to_add:
-                        self.objects_to_add['category'] = []
-                    self.objects_to_add['category'].append(c)
+                        for category in project.xpath('//category'):
+                            try:
+                                rough_order = float(category.xpath("./@rough_order")[0])
+                            except:
+                                rough_order = 0
+                            c = Category(name = str(category.xpath("./@name")[0]),
+                                         color = colour.Color(str(category.xpath("./@color")[0])),
+                                         rough_amount = int(category.xpath("./@rough_amount")[0]),
+                                         rough_order = rough_order)
+                            try:
+                                c.rough_amount_start = category.xpath("./@rough_amount_start")[0]
+                                c.rough_amount_end = category.xpath("./@rough_amount_end")[0]
+                            except Exception as ex:
+                                pass
 
+                            if "category" not in self.objects_to_add:
+                                self.objects_to_add['category'] = []
+                            self.objects_to_add['category'].append(c)
+                except etree.XMLSyntaxError as ex:
+                    print("cannot parse xml from file: {}, ignoring".format(file))
 
         print(session_xml)
         print(project_xml)
@@ -2781,6 +2794,10 @@ class ChecklistApp(App):
         return root
 
 if __name__ == "__main__":
-    app = ChecklistApp()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--xml-file", nargs='+', default=[], help="xml file(s) to load on startup (session will not be restored)")
+    parser.add_argument("--force-restore", action='store_true', help="restore session even if loading xml")
+    args = parser.parse_args()
+    app = ChecklistApp(**vars(args))
     atexit.register(app.save_session)
     app.run()
