@@ -885,6 +885,7 @@ class OutputPreview(BoxLayout):
                     used_source_hashes.add(group.source)
                 else:
                     r.set("source", "")
+                g.append(r)
 
                 # sequences for pipes
                 step = etree.Element("step",call="crop_to_key")
@@ -2404,13 +2405,13 @@ class ChecklistApp(App):
                                     print(ex)
                                     print(attribute, group.get(attribute))
 
-                            for region in xml.xpath('//region'):
+                            # use .// to regions local to group
+                            for region in group.xpath('.//region'):
                                 x = int(region.xpath("./@x")[0])
                                 y= int(region.xpath("./@y")[0])
                                 w = int(region.xpath("./@width")[0])
                                 h = int(region.xpath("./@height")[0])
                                 g.regions.append([x, y, x + w, y + h])
-
                                 # store dimensions in thumb and lookup via group source?
                                 #g.source_dimensions = (int(region.xpath("./@width"), int(region.xpath("./@width")))
                             if "group" not in self.objects_to_add:
