@@ -2420,13 +2420,14 @@ class ChecklistApp(App):
 
                         for rule in project.xpath('//rule'):
                             r = Rule()
+                            r.comparator_params = []
                             r.source_field = str(rule.xpath("./@source")[0])
                             r.dest_field = str(rule.xpath("./@destination")[0])
                             r.rule_result = str(rule.xpath("./@result")[0])
-                            # does not handle multiple parameters
+                            # handles multiple paramters but only a single symbol
                             for parameter in rule.xpath('//parameter'):
                                 r.comparator_symbol = str(parameter.xpath("./@symbol")[0])
-                                r.comparator_params = [str(parameter.xpath("./@values")[0])]
+                                r.comparator_params.append(parameter.xpath("./@values")[0])
 
                             if "rule" not in self.objects_to_add:
                                 self.objects_to_add['rule'] = []
