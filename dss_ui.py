@@ -2425,7 +2425,7 @@ class ChecklistApp(App):
                             r.dest_field = str(rule.xpath("./@destination")[0])
                             r.rule_result = str(rule.xpath("./@result")[0])
                             # handles multiple paramters but only a single symbol
-                            for parameter in rule.xpath('//parameter'):
+                            for parameter in rule.xpath('.//parameter'):
                                 r.comparator_symbol = str(parameter.xpath("./@symbol")[0])
                                 r.comparator_params.append(parameter.xpath("./@values")[0])
 
