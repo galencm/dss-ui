@@ -5,15 +5,18 @@ _domain specific structures_
 ## Installation
 
 Pip:
+
 ```
 pip3 install git+https://github.com/galencm/dss-ui --user
 ```
 
 Develop while using pip:
 
+```
 git clone https://github.com/galencm/dss-ui
-cd dss-ui
+cd dss-ui/
 pip3 install --editable ./ --user
+```
 
 ## Usage
 
