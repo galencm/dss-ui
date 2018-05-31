@@ -1996,14 +1996,33 @@ class ChecklistApp(App):
         self.session_save_filename = "session.xml"
         # if no previous session, load a few thumbs
         self.initial_random_thumbs = 2
+        self.restore_session = True
+        self.xml_files_to_load = []
+
+        if 'xml_file' in kwargs:
+            if kwargs['xml_file']:
+                self.xml_files_to_load = kwargs['xml_file']
+                self.restore_session = False
+
+        if 'force_restore' in kwargs:
+            if kwargs['force_restore'] is True:
+                self.restore_session = True
+
         super(ChecklistApp, self).__init__()
 
     def dump_session(self):
-        self.session['working_image'] = self.working_image.source_path
-        for img in self.thumbnails.children:
-            if not 'working_thumbs' in self.session:
-                self.session['working_thumbs'] = set()
-            self.session['working_thumbs'].add(img.source_path)
+        try:
+            self.session['working_image'] = self.working_image.source_path
+        except AttributeError as ex:
+            pass
+
+        try:
+            for img in self.thumbnails.children:
+                if not 'working_thumbs' in self.session:
+                    self.session['working_thumbs'] = set()
+                self.session['working_thumbs'].add(img.source_path)
+        except AttributeError as ex:
+            pass
 
     def grid_input(self, widget, slide_widget):
         try:
@@ -2276,15 +2295,21 @@ class ChecklistApp(App):
         saved_names["group"] = []
         saved_names["category"] = []
 
-        for group in self.groups:
-            default = etree.Element("default", type="group", name=group.name, color=group.color.hex_l)
-            defaults.append(default)
-            saved_names["group"].append(group.name)
+        try:
+            for group in self.groups:
+                default = etree.Element("default", type="group", name=group.name, color=group.color.hex_l)
+                defaults.append(default)
+                saved_names["group"].append(group.name)
+        except AttributeError as ex:
+            pass
 
-        for category in self.categories:
-            default = etree.Element("default", type="category", name=category.category.name, color=category.category.color.hex_l)
-            defaults.append(default)
-            saved_names["category"].append(category.category.name)
+        try:
+            for category in self.categories:
+                default = etree.Element("default", type="category", name=category.category.name, color=category.category.color.hex_l)
+                defaults.append(default)
+                saved_names["category"].append(category.category.name)
+        except AttributeError as ex:
+            pass
 
         # defaults
         try:
