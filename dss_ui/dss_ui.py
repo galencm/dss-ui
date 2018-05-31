@@ -2821,7 +2821,7 @@ class ChecklistApp(App):
 
         return root
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--xml-file", nargs='+', default=[], help="xml file(s) to load on startup (session will not be restored)")
     parser.add_argument("--force-restore", action='store_true', help="restore session even if loading xml")
