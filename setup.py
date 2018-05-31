@@ -16,6 +16,7 @@ name="dss_ui",
                       "https://github.com/galencm/machinic-wip/tarball/master#egg=ma_wip",
                       "https://github.com/galencm/machinic-lings/tarball/master#egg=lings"],
     entry_points = {'console_scripts': ['ma-ui-dss = dss_ui.dss_ui:main',
+                                        'dss-ui = dss_ui.dss_ui:main',
                                        ],
                             },
 )
