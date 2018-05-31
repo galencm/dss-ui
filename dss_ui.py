@@ -1339,7 +1339,7 @@ class GroupItem(BoxLayout):
 
     def update_group_display(self):
         if self.initial_update:
-            self.group_region.text = str(self.group.bounding_rectangle)
+            self.group_region.text = str(self.group.scaled_bounding_rectangle)
             self.group_color.color = self.group.color.rgb
             self.group_color.background_color = background_color=(*self.group.color.rgb, 1)
         else:
