@@ -1979,6 +1979,7 @@ class FileChooserPopup(Popup):
 
 class ChecklistApp(App):
     def __init__(self, *args,**kwargs):
+        self.title="dss"
         self.resize_size = 1000
         self.thumbnail_height = 250
         self.thumbnail_width = 250
