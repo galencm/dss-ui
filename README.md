@@ -7,7 +7,7 @@ _domain specific structures_
 Pip:
 
 ```
-pip3 install git+https://github.com/galencm/dss-ui --user
+pip3 install git+https://github.com/galencm/dss-ui --user --process-dependency-links
 ```
 
 Develop while using pip:
@@ -15,7 +15,7 @@ Develop while using pip:
 ```
 git clone https://github.com/galencm/dss-ui
 cd dss-ui/
-pip3 install --editable ./ --user
+pip3 install --editable ./ --user --process-dependency-links
 ```
 
 ## Usage
