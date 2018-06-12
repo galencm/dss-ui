@@ -849,11 +849,13 @@ class OutputPreview(BoxLayout):
         # this xml can be used to load previous session
         # and ignored by other programs
         s = etree.Element("session")
-        s.set("working_image", self.app.session['working_image'])
+        if self.app.session['working_image']:
+            s.set("working_image", self.app.session['working_image'])
         # set will not be ordered
         # t = etree.Element("thumbs")
         for thumb in self.app.session['working_thumbs']:
-            s.append(etree.Element("thumb", source_path=thumb))
+            if thumb:
+                s.append(etree.Element("thumb", source_path=thumb))
         # s.append(t)
         machine.append(s)
 
@@ -2077,7 +2079,10 @@ class ChecklistApp(App):
         binary_keys = ["binary_key", "binary", "image_binary_key"]
 
         if glworb is None:
-            glworb = random.choice(data_models.enumerate_data(pattern="glworb:*"))
+            try:
+                glworb = random.choice(data_models.enumerate_data(pattern="glworb:*"))
+            except IndexError:
+                pass
 
         for bkey in binary_keys:
             data = redis_conn.hget(glworb, bkey)
@@ -2400,7 +2405,11 @@ class ChecklistApp(App):
                 try:
                     xml = etree.parse(file)
                     for session in xml.xpath('//session'):
-                        session_xml['working_image'] = str(session.xpath("./@working_image")[0])
+                        try:
+                            session_xml['working_image'] = str(session.xpath("./@working_image")[0])
+                        except IndexError:
+                            pass
+
                         for child in session.getchildren():
                             try:
                                 session_xml['working_thumbs'].add(str(child.xpath("./@source_path")[0]))
