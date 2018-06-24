@@ -1423,6 +1423,7 @@ class ThumbItem(BoxLayout):
         thumb_remove = Button(text="del", font_size=20)
         thumb_remove.bind(on_press=lambda widget: self.parent.remove_thumb(self))
         self.add_widget(thumb_label)
+        self.thumb_label = thumb_label
         self.add_widget(thumb_remove)
 
     def select(self):
@@ -1431,6 +1432,8 @@ class ThumbItem(BoxLayout):
 class ThumbContainer(BoxLayout):
     def __init__(self, app, **kwargs):
         self.app = app
+        self.highlight_color = [0, 1, 0, 1]
+        self.default_color = [1, 1, 1, 1]
         super(ThumbContainer, self).__init__(**kwargs)
 
     def add_thumb(self, thumb):
@@ -1444,12 +1447,26 @@ class ThumbContainer(BoxLayout):
 
     def select_thumb(self, thumb_item):
         self.app.change_from_thumb(thumb_item.thumb)
+        self.highlight(thumb_item)
 
     def center_on(self, thumb):
         for child in self.children:
             if child.thumb == thumb:
                 self.parent.scroll_to(child)
+                thumb.highlight(self.highlight_color)
+                self.highlight(child)
                 break
+
+    def highlight(self, thumb_item):
+        # unhighlight all labels before
+        # highlighting selected thumb
+        for child in self.children:
+            try:
+                child.thumb_label.color = self.default_color
+            except AttributeError as ex:
+                pass
+        thumb_item.thumb_label.color = self.highlight_color
+
 
 class GroupContainer(BoxLayout):
     def __init__(self, **kwargs):
@@ -1537,6 +1554,28 @@ class ClickableImage(Image):
         self.selection_mode_selections = []
         self.selection_mode_group = None
         super(ClickableImage, self).__init__(**kwargs)
+
+    def unhighlight(self):
+        highlight_group = "highlight"
+        with self.canvas:
+            self.canvas.remove_group(highlight_group)
+
+    def highlight(self, highlight_color=None):
+        highlight_group = "highlight"
+        for child in self.parent.children:
+            try:
+                child.unhighlight()
+            except AttributeError as ex:
+                pass
+        if highlight_color is None:
+            highlight_color = [0, 1, 0, 1]
+
+        with self.canvas:
+            self.canvas.remove_group(highlight_group)
+            w, h = self.size
+            x, y = self.pos
+            Color(*highlight_color)
+            Line(rectangle=(x, y, w, h), width=3, group=highlight_group)
 
     def resize_window(self, *args):
         # only resize once...
