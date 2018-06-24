@@ -393,7 +393,7 @@ class GlworbRecycleView(RecycleView):
     def populate(self):
         self.data = []
         for glworb in data_models.enumerate_data(pattern="glworb:*"):
-            self.data.append({'text': str(data_models.pretty_format(redis_conn.hgetall(glworb), glworb)), 'glworb' : glworb})
+            self.data.append({'text': str(data_models.pretty_format(redis_conn.hgetall(glworb), glworb)), 'glworb' : glworb, 'fields' : redis_conn.hgetall(glworb)})
 
     def filter_view(self, filter_text):
         if filter_text:
@@ -401,9 +401,18 @@ class GlworbRecycleView(RecycleView):
             for glworb in data_models.enumerate_data(pattern="glworb:*"):
                 glworb_text = str(data_models.pretty_format(redis_conn.hgetall(glworb), glworb))
                 if filter_text in glworb_text:
-                    self.data.append({'text': glworb_text, 'glworb' : glworb})
+                    self.data.append({'text': glworb_text, 'glworb' : glworb, 'fields' : redis_conn.hgetall(glworb)})
         else:
             self.populate()
+
+    def mass_add(self, sort_by=None):
+        if sort_by is None:
+            sorted_glworbs = sorted(self.data)
+        else:
+            sorted_glworbs = sorted(self.data, key=lambda x: (x['fields'][sort_by]))
+
+        for glworb in sorted_glworbs:
+            self.app.add_glworb(glworb['glworb'])
 
 class ScatterTextWidget(BoxLayout):
 
@@ -2744,11 +2753,18 @@ class ChecklistApp(App):
         sub_tab = TabbedPanelItem(text="glworbs")
         glworb_filter = TextInput(multiline=False, size_hint_y=None, height=44)
         glworb_view = GlworbRecycleView()
+        glworb_view.app = self
         # scrollbar width
         glworb_view.bar_width = 20
         glworb_view.app = self
         glworb_filter.bind(on_text_validate=lambda instance: [glworb_view.filter_view(instance.text), setattr(instance, 'background_color', (0, 1, 0, 1)) if instance.text else setattr(instance, 'background_color', (1, 1, 1, 1))])
         glworbs_container.add_widget(glworb_filter)
+        add_filtered = BoxLayout(size_hint_y=None, height=44)
+        add_filtered.add_widget(Label(text="Load all filtered, sorted by:", size_hint_y=None, height=44))
+        add_sort_by = TextInput(multiline=False, size_hint_y=None, height=44)
+        add_filtered.add_widget(add_sort_by)
+        add_sort_by.bind(on_text_validate=lambda instance: glworb_view.mass_add(sort_by=instance.text))
+        glworbs_container.add_widget(add_filtered)
         glworbs_container.add_widget(glworb_view)
         sub_tab.add_widget(glworbs_container)
         sub_panel.add_widget(sub_tab)
