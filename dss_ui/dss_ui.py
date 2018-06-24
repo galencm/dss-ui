@@ -2744,6 +2744,8 @@ class ChecklistApp(App):
         sub_tab = TabbedPanelItem(text="glworbs")
         glworb_filter = TextInput(multiline=False, size_hint_y=None, height=44)
         glworb_view = GlworbRecycleView()
+        # scrollbar width
+        glworb_view.bar_width = 20
         glworb_view.app = self
         glworb_filter.bind(on_text_validate=lambda instance: [glworb_view.filter_view(instance.text), setattr(instance, 'background_color', (0, 1, 0, 1)) if instance.text else setattr(instance, 'background_color', (1, 1, 1, 1))])
         glworbs_container.add_widget(glworb_filter)
