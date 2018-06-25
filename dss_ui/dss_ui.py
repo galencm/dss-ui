@@ -1345,19 +1345,17 @@ class CategoryContainer(BoxLayout):
         if category.rough_order is None:
             category.rough_order = float(len(self.children))
         c = CategoryItem(category, height=50, size_hint_y=None)
-        self.add_widget(c, int(category.rough_order))
-
+        self.add_widget(c)
         self.categories.add(c)
         self.parent.scroll_to(c)
         self.reorder_widgets()
 
     def reorder_widgets(self):
-        b = self.children.copy()
+        children = self.children.copy()
         self.clear_widgets()
-        b.sort(key=lambda widget: widget.category.rough_order)
-        print(b)
-        for d in b:
-            self.add_widget(d, int(d.category.rough_order))
+        children.sort(key=lambda widget: widget.category.rough_order)
+        for c in children:
+            self.add_widget(c)
 
     def remove_category(self, name):
         for category in self.children:
