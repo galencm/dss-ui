@@ -2938,6 +2938,7 @@ class ChecklistApp(App):
         # using a clock since immediately
         # drawing results in wrong dimensions
         Clock.schedule_once(lambda x: self.working_image.draw_grid(), 10)
+        Clock.schedule_once(lambda x: self.working_image.draw_groups(), 1)
         Clock.schedule_once(lambda x: self.update_project_thumbnail(), 10)
 
         return root
