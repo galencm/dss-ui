@@ -1261,7 +1261,6 @@ class CategoryItem(BoxLayout):
         try:
             self.category.rough_order = float(widget.text)
             self.parent.reorder_widgets()
-            self.parent.update()
         except Exception as ex:
             pass
 
@@ -1356,21 +1355,22 @@ class CategoryContainer(BoxLayout):
         children.sort(key=lambda widget: widget.category.rough_order)
         for c in children:
             self.add_widget(c)
+        self.update()
 
     def remove_category(self, name):
         for category in self.children:
             try:
                 if category.category.name == name:
-                    try:
-                        del self.app.project['categories'][category.category.name]
-                        del self.app.project['palette'][category.category.name]
-                        self.app.update_project_image()
-                        self.app.update_project_thumbnail()
-                    except Exception as ex:
-                        pass
                     del category.category
                     self.remove_widget(category)
                     self.categories.remove(category)
+                    try:
+                        del self.app.project['categories'][name]
+                        del self.app.project['palette'][name]
+                        del self.app.project['order'][name]
+                        self.update()
+                    except Exception as ex:
+                        pass
             except AttributeError as ex:
                 pass
 
