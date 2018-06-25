@@ -707,7 +707,7 @@ class RuleGenerator(BoxLayout):
             # Problem: subtracted amount is an arbitrary, used until
             # y axis issues are resolved...
             # see scaled_bounding_rectangle
-            magic_y = 150
+            magic_y = h
             pipe["y"] = y - magic_y
             pipe["w"] = w
             pipe["h"] = h
