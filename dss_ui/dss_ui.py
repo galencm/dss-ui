@@ -180,6 +180,8 @@ class Group(object):
     name = attr.ib(default="")
     hide = attr.ib(default=False)
     source_dimensions = attr.ib(default=attr.Factory(list))
+    source_dimensions_scaled = attr.ib(default=attr.Factory(list))
+    source_dimensions_unscaled = attr.ib(default=attr.Factory(list))
     source = attr.ib(default="")
 
     @color.validator
@@ -212,6 +214,38 @@ class Group(object):
         return self.y2 - self.y
     
     @property
+    def unscaled_bounding_rectangle(self):
+        try:
+            rect = self.region_rectangle()
+            ox = self.display_offset_x
+            oy = self.display_offset_y
+            rect = [rect[0] - ox, rect[1], rect[2] - ox, rect[3]]
+
+            x_scale = self.source_dimensions_unscaled[0] / self.source_dimensions_scaled[0]
+            y_scale = self.source_dimensions_unscaled[1] / self.source_dimensions_scaled[1]
+            print("unscaled xy {}, {}".format(x_scale, y_scale))
+            x = rect[0]
+            y = rect[1]
+            x2 = rect[2]
+            y2 = rect[3]
+            # kivy canvas 0,0 is lower left corner
+            # image processing expects 0,0 is upper left corner
+            x = int(round(x * x_scale))
+            y = int(round(y * y_scale))
+            x2 = int(round(x2 * x_scale))
+            y2 = int(round(y2 * y_scale))
+            h = abs(y2 - y)
+            y -= self.source_height
+            y2 -= self.source_height
+            y = abs(y)
+            y2 = abs(y2)
+            # w = abs(x2 - x)
+            # h = abs(y2 - y)
+            return [x, y, x2, y2]
+        except Exception as ex:
+            print(ex)
+
+    @property
     def scaled_bounding_rectangle(self):
         # scaled to fullsize with offsets removed
         # and coordinates shifted to upper left 0,0
@@ -224,8 +258,8 @@ class Group(object):
             print("offsets x, y", self.display_offset_x, self.display_offset_y)
             rect = [rect[0] - ox, rect[1], rect[2] - ox, rect[3]]
             # get xy scaling
-            x_scale = self.source_width / self.source_dimensions[0]
-            y_scale = self.source_height / self.source_dimensions[1]
+            x_scale = self.source_dimensions_unscaled[0] / self.source_dimensions_scaled[0]
+            y_scale = self.source_dimensions_unscaled[1] / self.source_dimensions_scaled[1]
             x = rect[0]
             y = rect[1]
             x2 = rect[2]
@@ -240,8 +274,8 @@ class Group(object):
             # used by kivy canvas to top left 0,0 used by
             # pillow, x does not need adjustment
             h = abs(y2 - y)
-            y -= self.source_height
-            y2 -= self.source_height
+            y -= self.source_dimensions_unscaled[1]
+            y2 -= self.source_dimensions_unscaled[1]
             y = abs(y)
             y2 = abs(y2)
             # get width and height to print xywh
@@ -349,8 +383,10 @@ class ClickableFileChooserListView(FileChooserListView):
                     #<region x="500" y="300" x2="600" y2="400" width="100" height="100" source="20d5fba1ae631fe3358ea57571be781dc971a7420597b55f15cffa46c79fea2d"/>
                     name = str(record.xpath("./@name")[0])
                     color = str(record.xpath("./@color")[0])
-                    width = int(float(record.xpath("./@width")[0]))
-                    height = int(float(record.xpath("./@height")[0]))
+                    source_width_scaled = int(float(record.xpath("./@source_width_scaled")[0]))
+                    source_height_scaled = int(float(record.xpath("./@source_height_scaled")[0]))
+                    source_width_unscaled = int(float(record.xpath("./@source_width_unscaled")[0]))
+                    source_height_unscaled = int(float(record.xpath("./@source_height_unscaled")[0]))
                     for region in record.getchildren():
                         x = int(region.xpath("./@x")[0])
                         y = int(region.xpath("./@y")[0])
@@ -364,7 +400,9 @@ class ClickableFileChooserListView(FileChooserListView):
                         group = Group()
                         group.name = name
                         group.color = colour.Color(color)
-                        group.source_dimensions = [width, height]
+                        group.source_dimensions = [source_width_scaled, source_height_scaled]
+                        group.source_dimensions_scaled = [source_width_scaled, source_height_scaled]
+                        group.source_dimensions_unscaled = [source_width_unscaled, source_height_unscaled]
                         group.source = source
                         group.regions.append([x, y, x2, y2])
                         self.app.working_image.group_container.add_group(group)
@@ -875,8 +913,13 @@ class OutputPreview(BoxLayout):
             sequence = etree.Element("sequence",name=group.name)
             g.set("name", group.name)
             g.set("color", group.color.hex_l)
-            for dimension_name, dimension in zip(['width','height','depth'], group.source_dimensions):
-                g.set(dimension_name, str(dimension))
+            g.set("source_width_scaled", str(group.source_dimensions_scaled[0]))
+            g.set("source_height_scaled", str(group.source_dimensions_scaled[1]))
+            g.set("source_width_unscaled", str(group.source_dimensions_unscaled[0]))
+            g.set("source_height_unscaled", str(group.source_dimensions_unscaled[1]))
+
+            # for dimension_name, dimension in zip(['width','height','depth'], group.source_dimensions):
+            #     g.set(dimension_name, str(dimension))
             for region in group.regions:
                 r = etree.SubElement(g, "region")
                 x = str(region[0])
@@ -899,8 +942,14 @@ class OutputPreview(BoxLayout):
                 g.append(r)
 
                 # sequences for pipes
+                # used unscaled (fullsize) values
                 step = etree.Element("step",call="crop_to_key")
-                for arg, descrip in zip([x, y, width, height, group.name], ["x", "y", "width", "height", "to key"]):
+                sx, sy, sx2, sy2 = group.scaled_bounding_rectangle
+                sw = abs(sx2 - sx)
+                sh = abs(sy2 - sy)
+                magic_y = sh
+                sy -= magic_y
+                for arg, descrip in zip([sx, sy, sw, sh, group.name], ["x", "y", "width", "height", "to key"]):
                     argument = etree.Element("argument", value=str(arg), description=descrip)
                     step.append(argument)
                 sequence.append(step)
@@ -1759,6 +1808,8 @@ class ClickableImage(Image):
             group.name = str(uuid.uuid4())
             group.color = colour.Color(pick_for=group)
             group.source_dimensions = [w, h]#[self.width, self.height]
+            group.source_dimensions_scaled = self.norm_image_size
+            group.source_dimensions_unscaled = [self.source_width, self.source_height]
             group.source = self.source_hash
             group.source_width = self.source_width
             group.source_height = self.source_height
@@ -2474,9 +2525,13 @@ class ChecklistApp(App):
                             ### encode in xml
                             g.display_offset_x = 0
                             g.display_offset_y = 0
-                            g.source_dimensions = [1, 1]
-                            g.source_width = 1
-                            g.source_height = 1
+                            source_width_scaled = int(float(group.xpath("./@source_width_scaled")[0]))
+                            source_height_scaled = int(float(group.xpath("./@source_height_scaled")[0]))
+                            source_width_unscaled = int(float(group.xpath("./@source_width_unscaled")[0]))
+                            source_height_unscaled = int(float(group.xpath("./@source_height_unscaled")[0]))
+                            g.source_dimensions = [source_width_scaled, source_height_scaled]
+                            g.source_dimensions_scaled = [source_width_scaled, source_height_scaled]
+                            g.source_dimensions_unscaled = [source_width_unscaled, source_height_unscaled]
                             ###
                             for attribute in group.attrib:
                                 try:
