@@ -2699,7 +2699,7 @@ class ChecklistApp(App):
 
         # horizontal boxlayout, label and input is repetitive
         # move to function that accepts label text, bind call, ...
-        project_container = BoxLayout(orientation='vertical', size_hint_y=None, height=1200, minimum_height=200)
+        project_container = BoxLayout(orientation='vertical', size_hint_y=None, height=2000, minimum_height=200)
         name_container = BoxLayout(orientation="horizontal", size_hint_y=None)
 
         project_image = Image(size_hint_y=None)
