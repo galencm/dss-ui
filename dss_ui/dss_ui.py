@@ -1142,6 +1142,7 @@ class RuleContainer(BoxLayout):
         rule.size_hint_y = None
         self.add_widget(rule)
         self.parent.scroll_to(rule)
+        self.app.update_project_rules_thumbnail()
 
     def remove_rule(self, rule_id):
         for rule in self.children:
@@ -1151,10 +1152,14 @@ class RuleContainer(BoxLayout):
                     self.remove_widget(rule)
             except AttributeError as ex:
                 pass
+        self.app.update_project_rules_thumbnail()
 
     @property
     def rules(self):
         return [rule.rule for rule in self.children if hasattr(rule, 'rule')]
+
+    def rules_thumbnail(self):
+        return visualizations.rules([child.rule for child in self.children], [child.group for child in self.app.containers['group'].children])
 
 class CategoryItem(BoxLayout):
     def __init__(self, category, **kwargs):
@@ -2368,6 +2373,13 @@ class ChecklistApp(App):
         self.project_image_thumbnail.texture = CoreImage(overview_thumbnail, ext="jpg", keep_data=True).texture
         self.project_image_thumbnail.size = self.project_image_thumbnail.texture_size
 
+    def update_project_rules_thumbnail(self):
+        overview_rules_thumbnail = self.rule_gen.rule_container.rules_thumbnail()[1]
+        self.project_rules_image_thumbnail.allow_stretch = True
+        self.project_rules_image_thumbnail.keep_ratio = False
+        self.project_rules_image_thumbnail.texture = CoreImage(overview_rules_thumbnail, ext="jpg", keep_data=True).texture
+        self.project_rules_image_thumbnail.size = self.project_rules_image_thumbnail.texture_size
+
     def update_project_info(self, attribute, value):
         self.project[attribute] = value
         if attribute == "name":
@@ -2679,6 +2691,7 @@ class ChecklistApp(App):
         self.update_project_image()
         self.project_thumbnail_height = 25
         self.project_image_thumbnail = Image(height=self.project_thumbnail_height, size_hint_y=None)
+        self.project_rules_image_thumbnail = Image(size_hint_y=None, size_hint_x=None)
 
         project_scroll = ScrollView(bar_width=20)
         project_scroll.add_widget(project_container)
@@ -2687,6 +2700,7 @@ class ChecklistApp(App):
         project_container.add_widget(self.project_name_header)
         project_container.add_widget(project_dimensions_image)
         project_container.add_widget(project_image)
+        project_container.add_widget(self.project_rules_image_thumbnail)
 
         self.create_project_widgets("name", project_container, self.project_widgets)
         self.create_project_widgets("width", project_container, self.project_widgets)
@@ -2801,6 +2815,12 @@ class ChecklistApp(App):
         rules_container = BoxLayout(orientation='vertical')
         rule_gen = RuleGenerator(self)
         rule_gen.rule_container = rules_layout
+
+        # for testing rules thumbnail generation
+        # thumb_button = Button(text="thumb rule", size_hint_y=None, height=44)
+        # thumb_button.bind(on_release=lambda instance: rule_gen.rule_container.rules_thumbnail())
+        # rule_gen.action_container.add_widget(thumb_button)
+
         rules_container.add_widget(rules_scroll)
         rules_container.add_widget(rule_gen)
         #rule_gen.app = self
@@ -2956,6 +2976,7 @@ class ChecklistApp(App):
         Clock.schedule_once(lambda x: self.working_image.draw_grid(), 10)
         Clock.schedule_once(lambda x: self.working_image.draw_groups(), 1)
         Clock.schedule_once(lambda x: self.update_project_thumbnail(), 10)
+        Clock.schedule_once(lambda x: self.update_project_rules_thumbnail(), 1)
 
         return root
 
