@@ -1566,6 +1566,7 @@ class GroupContainer(BoxLayout):
         self.add_widget(g)
         # set scroll location to created group
         self.parent.scroll_to(g)
+        self.app.update_project_groups_thumbnail()
 
     def remove_group(self, name):
         for group in self.children:
@@ -1578,12 +1579,18 @@ class GroupContainer(BoxLayout):
                     self.request_redraw()
             except AttributeError as ex:
                 pass
+        self.app.update_project_groups_thumbnail()
 
     def group_region_redraw(self, group):
         self.app.working_image.select_region(group)
+        self.app.update_project_groups_thumbnail()
 
     def request_redraw(self):
         self.app.working_image.redraw()
+        self.app.update_project_groups_thumbnail()
+
+    def groups_thumbnail(self):
+        return visualizations.groups([group.group for group in self.children])
 
 class OverlayImage(Image):
     def __init__(self, app, **kwargs):
@@ -2379,6 +2386,17 @@ class ChecklistApp(App):
         self.project_rules_image_thumbnail.keep_ratio = False
         self.project_rules_image_thumbnail.texture = CoreImage(overview_rules_thumbnail, ext="jpg", keep_data=True).texture
         self.project_rules_image_thumbnail.size = self.project_rules_image_thumbnail.texture_size
+        if self.project_rules_image_thumbnail.parent.height < self.project_rules_image_thumbnail.height:
+            self.project_rules_image_thumbnail.parent.height = self.project_rules_image_thumbnail.height
+
+    def update_project_groups_thumbnail(self):
+        overview_groups_thumbnail = self.containers['group'].groups_thumbnail()[1]
+        self.project_groups_image_thumbnail.allow_stretch = True
+        self.project_groups_image_thumbnail.keep_ratio = False
+        self.project_groups_image_thumbnail.texture = CoreImage(overview_groups_thumbnail, ext="jpg", keep_data=True).texture
+        self.project_groups_image_thumbnail.size = self.project_groups_image_thumbnail.texture_size
+        if self.project_groups_image_thumbnail.parent.height < self.project_groups_image_thumbnail.height:
+            self.project_groups_image_thumbnail.parent.height = self.project_groups_image_thumbnail.height
 
     def update_project_info(self, attribute, value):
         self.project[attribute] = value
@@ -2692,6 +2710,7 @@ class ChecklistApp(App):
         self.project_thumbnail_height = 25
         self.project_image_thumbnail = Image(height=self.project_thumbnail_height, size_hint_y=None)
         self.project_rules_image_thumbnail = Image(size_hint_y=None, size_hint_x=None)
+        self.project_groups_image_thumbnail = Image(size_hint_y=None, size_hint_x=None)
 
         project_scroll = ScrollView(bar_width=20)
         project_scroll.add_widget(project_container)
@@ -2700,7 +2719,10 @@ class ChecklistApp(App):
         project_container.add_widget(self.project_name_header)
         project_container.add_widget(project_dimensions_image)
         project_container.add_widget(project_image)
-        project_container.add_widget(self.project_rules_image_thumbnail)
+        rules_groups_thumbnail_container = BoxLayout(orientation="horizontal", size_hint_x=1, size_hint_y=None)
+        rules_groups_thumbnail_container.add_widget(self.project_groups_image_thumbnail)
+        rules_groups_thumbnail_container.add_widget(self.project_rules_image_thumbnail)
+        project_container.add_widget(rules_groups_thumbnail_container)
 
         self.create_project_widgets("name", project_container, self.project_widgets)
         self.create_project_widgets("width", project_container, self.project_widgets)
@@ -2977,6 +2999,7 @@ class ChecklistApp(App):
         Clock.schedule_once(lambda x: self.working_image.draw_groups(), 1)
         Clock.schedule_once(lambda x: self.update_project_thumbnail(), 10)
         Clock.schedule_once(lambda x: self.update_project_rules_thumbnail(), 1)
+        Clock.schedule_once(lambda x: self.update_project_groups_thumbnail(), 1)
 
         return root
 
