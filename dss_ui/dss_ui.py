@@ -1173,7 +1173,7 @@ class CategoryItem(BoxLayout):
         self.rough_order_input.bind(on_text_validate=self.update_order)
 
         category_name = TextInput(text=self.category.name, multiline=False, font_size=20, background_color=(.6, .6, .6, 1))
-        category_name.bind(on_text_validate=functools.partial(self.on_text_enter))
+        category_name.bind(on_text_validate=functools.partial(self.update_name))
         category_remove = Button(text= "del", font_size=20)
         category_remove.bind(on_press=self.remove_category)
         self.rough_items_input = TextInput(text=str(category.rough_amount), size_hint_x=.2, multiline=False, height=44, size_hint_y=None)
@@ -1288,9 +1288,10 @@ class CategoryItem(BoxLayout):
         #update thumbnail preview
         self.parent.update()
 
-    def on_text_enter(self, instance, *args):
+    def update_name(self, instance, *args):
         print(instance.text, args)
         old_name = self.category.name
+        self.parent.remove_category_data(old_name)
         self.category.name = instance.text
         self.parent.updated_category_name(old_name, self.category.name)
         try:
@@ -1360,6 +1361,19 @@ class CategoryContainer(BoxLayout):
         for c in children:
             self.add_widget(c)
         self.update()
+
+    def remove_category_data(self, name):
+        for category in self.children:
+            try:
+                if category.category.name == name:
+                    try:
+                        del self.app.project['categories'][name]
+                        del self.app.project['palette'][name]
+                        del self.app.project['order'][name]
+                    except Exception as ex:
+                        pass
+            except AttributeError as ex:
+                pass
 
     def remove_category(self, name):
         for category in self.children:
