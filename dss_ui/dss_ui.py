@@ -538,9 +538,12 @@ class GlworbInfo(BoxLayout):
         container = self.glworb_container
         container.clear_widgets()
         fields = redis_conn.hgetall(uuid)
+        # use row_defaults for field : value widgets
+        row_defaults = { 'font_size' : 15, 'size_hint_y' : 1, 'height' : 30 }
+        row_height_multiplier = 35
         for k, v in sorted(fields.items()):
-            row = BoxLayout(orientation='horizontal', size_hint_y=.1)
-            field = GlworbInfoCell(container=self, text=k, multiline=False)
+            row = BoxLayout(orientation='horizontal')
+            field = GlworbInfoCell(container=self, text=k, multiline=False, **row_defaults)
             # use prior_field to delete correct field
             # even if field text has changed
             field.prior_field = field.text
@@ -555,27 +558,28 @@ class GlworbInfo(BoxLayout):
                 field.background_color = (0, 0, 1, 1)
             if v in [category.category.name for category in self.app.categories]:
                 category = [category.category for category in self.app.categories if v == category.category.name][0]
-                field_value = TextInput(text=v, background_color=(*category.color.rgb,1), multiline=False)
+                field_value = TextInput(text=v, background_color=(*category.color.rgb,1), multiline=False, **row_defaults)
                 row.add_widget(field_value)
                 field_value.field = field
                 field_value.bind(on_text_validate=lambda widget: self.update_field_value(widget.field.text, widget.text))
             else:
-                field_value = TextInput(text=v, multiline=False)
+                field_value = TextInput(text=v, multiline=False, **row_defaults)
                 row.add_widget(field_value)
                 field_value.field = field
                 field_value.bind(on_text_validate=lambda widget: self.update_field_value(widget.field.text, widget.text))
             container.add_widget(row)
         container.add_widget(Label(text="add field:value", halign="left", size_hint_y=None, size_hint_x=None, height=44))
-        new_field_name = TextInput(text="", multiline=False)
-        new_field_value = TextInput(text="", multiline=False)
+        new_field_name = TextInput(text="", multiline=False, size_hint_y=1, height=44)
+        new_field_value = TextInput(text="", multiline=False, size_hint_y=1, height=44)
         new_field_name.bind(on_text_validate=lambda widget: self.add_field(widget, new_field_value))
         new_field_value.bind(on_text_validate=lambda widget: self.add_field(new_field_name, widget))
-        add_row = BoxLayout(orientation='horizontal', size_hint_y=.1)
+        add_row = BoxLayout(orientation='horizontal', size_hint_y=None)
 
         add_row.add_widget(new_field_name)
         add_row.add_widget(new_field_value)
         container.add_widget(add_row)
         container.add_widget(Label(text="pipe env -> {}".format(str(self.app.pipe_env)), size_hint_y=None, height=44))
+        self.glworb_container.height = len(container.children) * row_height_multiplier
 
     def add_field(self, name_widget, value_widget):
         if name_widget.text == "":
@@ -1474,9 +1478,9 @@ class ThumbItem(BoxLayout):
         self.thumb = thumb
         self.orientation = "horizontal"
         super(ThumbItem, self).__init__(**kwargs)
-        thumb_label = ClickableLabel(text=self.thumb.source_hash)
+        thumb_label = ClickableLabel(text=self.thumb.source_hash, font_size=15)
         thumb_label.bind(on_press=lambda widget: self.select())
-        thumb_remove = Button(text="del", font_size=20)
+        thumb_remove = Button(text="del", font_size=15, size_hint_x=0.2)
         thumb_remove.bind(on_press=lambda widget: self.parent.remove_thumb(self))
         self.add_widget(thumb_label)
         self.thumb_label = thumb_label
@@ -2792,10 +2796,10 @@ class ChecklistApp(App):
         sub_panel.add_widget(sub_tab)
 
         sub_tab = TabbedPanelItem(text="info")
-        info_container = BoxLayout(orientation="vertical")
-        self.glworb_info = GlworbInfo(self, size_hint_y=0.5)
+        info_container = BoxLayout(orientation="horizontal")
+        self.glworb_info = GlworbInfo(self, size_hint_y=1)
         info_container.add_widget(self.glworb_info)
-        thumbs_scroll = ScrollView(bar_width=20, size_hint_y=0.5)
+        thumbs_scroll = ScrollView(bar_width=20, size_hint_y=1)
         thumbs_scroll.add_widget(thumbs_layout)
         info_container.add_widget(thumbs_scroll)
         sub_tab.add_widget(info_container)
