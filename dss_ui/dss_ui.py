@@ -3094,6 +3094,8 @@ class ChecklistApp(App):
         Clock.schedule_once(lambda x: self.update_project_thumbnail(), 10)
         Clock.schedule_once(lambda x: self.update_project_rules_thumbnail(), 1)
         Clock.schedule_once(lambda x: self.update_project_groups_thumbnail(), 1)
+        # periodically update xml in db
+        Clock.schedule_interval(lambda x: self.xml_generator.generate_xml(write_output=False, output_type="xml->pub", generate_preview=False), 10)
 
         return root
 
