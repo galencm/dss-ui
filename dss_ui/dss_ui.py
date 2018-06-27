@@ -1011,6 +1011,14 @@ class OutputPreview(BoxLayout):
         if generate_preview is True:
             self.output_preview.text += etree.tostring(machine, pretty_print=True).decode()
         # project dimensions width height depth
+
+        # allow writing to redis db regardless of write_ouput flag
+        if output_type == "xml->pub":
+                machine_root = etree.ElementTree(machine)
+                key_name = "project:{}".format(self.app.project['name'])
+                redis_conn.set(key_name, etree.tostring(machine_root.getroot(), encoding='utf8', method='xml'))
+                #redis_conn.publish(key_name)
+
         if write_output is True:
             machine_root = etree.ElementTree(machine)
             xml_filename = output_filename
@@ -1022,10 +1030,6 @@ class OutputPreview(BoxLayout):
 
             if output_type == "xml":
                 machine_root.write(os.path.join(output_path, xml_filename), pretty_print=True)
-            elif output_type == "xml->pub":
-                key_name = "project:{}".format(self.app.project['name'])
-                redis_conn.set(key_name, etree.tostring(machine_root.getroot(), encoding='utf8', method='xml'))
-                #redis_conn.publish(key_name)
             elif output_type == "xml+sources(dir)":
                 machine_root.write(os.path.join(output_path, xml_filename), pretty_print=True)
                 for h in used_source_hashes:
