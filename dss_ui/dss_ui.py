@@ -350,6 +350,15 @@ class Group(object):
         return [min_x, min_y, max_x, max_y]
 
 @attr.s
+class Part(object):
+    name = attr.ib(default=None)
+    # set name to random uuid if none supplied
+    @name.validator
+    def check(self, attribute, value):
+        if value is None:
+            setattr(self, 'name', str(uuid.uuid4()))
+
+@attr.s
 class Category(object):
     color = attr.ib(default=None)
     name = attr.ib(default=None)
@@ -679,7 +688,7 @@ class RuleGenerator(BoxLayout):
         self.between_params_default.add_widget(Label(text="to", size_hint_y=None, height=44))
         self.between_params_default.add_widget(TextInput(text="", size_hint_y=None, height=44))
 
-        self.dest_fields = DropDownInput(size_hint_y=None, height=44)
+        self.dest_fields = DropDownInput(preload=self.app.parts, preload_attr="part.name", size_hint_y=None, height=44)
         self.rule_result = DropDownInput(preload=self.app.categories, preload_attr="category.name", size_hint_y=None, height=44)
 
         self.add_widget(self.create_container)
@@ -687,6 +696,7 @@ class RuleGenerator(BoxLayout):
 
         create_button = Button(text="create rule", size_hint_y=None, height=44)
         create_button.bind(on_release=self.create_rule)
+
         self.action_container.add_widget(create_button)
 
         self.create_container.add_widget(Label(text="result", font_size=15, size_hint_y=None, height=44))
@@ -992,6 +1002,12 @@ class OutputPreview(BoxLayout):
             # self.text += etree.tostring(c, pretty_print=True).decode()
             machine.append(c)
 
+        # parts
+        for part in self.app.part_container.parts:
+            p = etree.Element("part")
+            p.set("name", part.part.name)
+            machine.append(p)
+
         if generate_preview is True:
             self.output_preview.text += etree.tostring(machine, pretty_print=True).decode()
         # project dimensions width height depth
@@ -1160,6 +1176,57 @@ class RuleContainer(BoxLayout):
 
     def rules_thumbnail(self):
         return visualizations.rules([child.rule for child in self.children], [child.group for child in self.app.containers['group'].children])
+
+class PartItem(BoxLayout):
+    def __init__(self, part, **kwargs):
+        self.part = part
+        super(PartItem, self).__init__(**kwargs)
+        part_name = TextInput(text=self.part.name, multiline=False, font_size=20, background_color=(.6, .6, .6, 1))
+        part_name.bind(on_text_validate=functools.partial(self.update_name))
+        part_remove = Button(text= "del", font_size=20)
+        part_remove.bind(on_press=self.remove_part)
+        self.add_widget(part_name)
+        self.add_widget(part_remove)
+
+    def remove_part(self, *args):
+        self.parent.remove_part(self.part.name)
+
+    def update_name(self, instance, *args):
+        old_name = self.part.name
+        self.part.name = instance.text
+
+class PartContainer(BoxLayout):
+    def __init__(self, **kwargs):
+        self.parts = set()
+        self.app = None
+        super(PartContainer, self).__init__(**kwargs)
+
+    def add_part(self, part):
+        c = PartItem(part, height=50, size_hint_y=None)
+        self.add_widget(c)
+        self.parts.add(c)
+        self.parent.scroll_to(c)
+
+    def remove_part(self, name):
+        for part in self.children:
+            try:
+                if part.part.name == name:
+                    self.parts.remove(part)
+                    del part.part
+                    self.remove_widget(part)
+            except AttributeError as ex:
+                pass
+
+class PartGenerator(BoxLayout):
+    def __init__(self,**kwargs):
+        super(PartGenerator, self).__init__(**kwargs)
+        create_button = Button(text="create part", size_hint_y=None, height=44)
+        create_button.bind(on_release=self.create_part)
+        self.add_widget(create_button)
+
+    def create_part(self, widget):
+        part = Part()
+        self.part_container.add_part(part)
 
 class CategoryItem(BoxLayout):
     def __init__(self, category, **kwargs):
@@ -2617,7 +2684,15 @@ class ChecklistApp(App):
                                 self.objects_to_add['rule'] = []
                             self.objects_to_add['rule'].append(r)
 
+                        for part in project.xpath('//part'):
+                            p = Part(name = str(part.xpath("./@name")[0]))
+
+                            if "part" not in self.objects_to_add:
+                                self.objects_to_add['part'] = []
+                            self.objects_to_add['part'].append(p)
+
                         for category in project.xpath('//category'):
+
                             try:
                                 rough_order = float(category.xpath("./@rough_order")[0])
                             except:
@@ -2830,6 +2905,22 @@ class ChecklistApp(App):
         sub_tab.add_widget(categories_container)
         sub_panel.add_widget(sub_tab)
 
+        sub_tab = TabbedPanelItem(text="parts")
+        parts_layout = PartContainer(orientation='vertical', size_hint_y=None, height=self.working_image_height, minimum_height=self.working_image_height)
+        parts_layout.app = self
+        self.containers['part']= parts_layout
+        self.part_container = parts_layout
+        self.parts = parts_layout.parts
+        parts_scroll = ScrollView(bar_width=20)
+        parts_scroll.add_widget(parts_layout)
+        parts_container = BoxLayout(orientation='vertical')
+        parts_gen = PartGenerator(size_hint_y=None)
+        parts_gen.part_container = parts_layout
+        parts_container.add_widget(parts_scroll)
+        parts_container.add_widget(parts_gen)
+        sub_tab.add_widget(parts_container)
+        sub_panel.add_widget(sub_tab)
+
         sub_tab = TabbedPanelItem(text="rules")
         rules_scroll = ScrollView(bar_width=20)
         rules_scroll.add_widget(rules_layout)
@@ -2986,6 +3077,9 @@ class ChecklistApp(App):
             elif k == 'category':
                 for c in v:
                     self.containers['category'].add_category(c)
+            elif k == 'part':
+                for p in v:
+                    self.containers['part'].add_part(p)
 
         # call to update thumbnails and project image using
         # loaded categories if any
