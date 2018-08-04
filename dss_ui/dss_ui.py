@@ -2199,6 +2199,12 @@ class ChecklistApp(App):
         self.initial_random_thumbs = 2
         self.restore_session = True
         self.xml_files_to_load = []
+        if kwargs["db_host"] and kwargs["db_port"]:
+            global binary_r
+            global redis_conn
+            db_settings = {"host" :  kwargs["db_host"], "port" : kwargs["db_port"]}
+            binary_r = redis.StrictRedis(**db_settings)
+            redis_conn = redis.StrictRedis(**db_settings, decode_responses=True)
 
         if 'xml_file' in kwargs:
             if kwargs['xml_file']:
@@ -3107,6 +3113,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--xml-file", nargs='+', default=[], help="xml file(s) to load on startup (session will not be restored)")
     parser.add_argument("--force-restore", action='store_true', help="restore session even if loading xml")
+    parser.add_argument("--db-host",  help="db host ip, requires use of --db-port")
+    parser.add_argument("--db-port", type=int, help="db port, requires use of --db-host")
     args = parser.parse_args()
     app = ChecklistApp(**vars(args))
     atexit.register(app.save_session)
