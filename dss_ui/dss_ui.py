@@ -2189,6 +2189,7 @@ class ChecklistApp(App):
         self.groups = []
         self.removed_groups = []
         self.project = {}
+        self.project["name"] = ""
         self.project_widgets = {}
         self.objects_to_add = {}
         self.containers = {}
