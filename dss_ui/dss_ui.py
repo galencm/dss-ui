@@ -439,13 +439,13 @@ class GlworbRecycleView(RecycleView):
 
     def populate(self):
         self.data = []
-        for glworb in data_models.enumerate_data(pattern="glworb:*"):
+        for glworb in redis_conn.scan_iter(match="glworb:*"):
             self.data.append({'text': str(data_models.pretty_format(redis_conn.hgetall(glworb), glworb)), 'glworb' : glworb, 'fields' : redis_conn.hgetall(glworb)})
 
     def filter_view(self, filter_text):
         if filter_text:
             self.data = []
-            for glworb in data_models.enumerate_data(pattern="glworb:*"):
+            for glworb in redis_conn.scan_iter(match="glworb:*"):
                 glworb_text = str(data_models.pretty_format(redis_conn.hgetall(glworb), glworb))
                 if filter_text in glworb_text:
                     self.data.append({'text': glworb_text, 'glworb' : glworb, 'fields' : redis_conn.hgetall(glworb)})
@@ -608,7 +608,7 @@ class GlworbInfo(BoxLayout):
         if field == "":
             print("removing field {}".format(widget.prior_field))
             # remove field if emptied
-            print(data_models.remove_field(widget.prior_field, [self.current_uuid]))
+            redis_conn.hdel(self.current_uuid, *[widget.prior_field])
             self.update(self.current_uuid)
         else:
             value=''
@@ -621,7 +621,7 @@ class GlworbInfo(BoxLayout):
                     except Exception as ex:
                         print(ex)
             print("value is {}".format(value))
-            data_models.add_field(field, [self.current_uuid], values=[value])
+            redis_conn.hset(self.current_uuid, {field : value})
             self.update(self.current_uuid)
 
     def update_field_value(self, field, value):
@@ -2099,7 +2099,7 @@ def bimg_resized(uuid, new_size, linking_uuid=None):
         # escape braces
         data_model_string = data_model_string.replace("{","{{")
         data_model_string = data_model_string.replace("}","}}")
-        img = data_models.img_overlay(img, data_model_string, 50, 50, 12)
+        #img = data_models.img_overlay(img, data_model_string, 50, 50, 12)
     file = io.BytesIO()
     img.save(file, extension)
     img.close()
@@ -2284,7 +2284,7 @@ class ChecklistApp(App):
 
         if glworb is None:
             try:
-                glworb = random.choice(data_models.enumerate_data(pattern="glworb:*"))
+                glworb = random.choice(list(redis_conn.scan_iter(match="glworb:*")))
             except IndexError:
                 pass
 
