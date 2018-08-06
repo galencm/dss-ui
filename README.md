@@ -2,6 +2,10 @@
 
 _domain specific structures_
 
+## Note
+
+See [dzz-ui](https://github.com/galencm/dzz-ui) for refinements of dss-ui ideas and functionality
+
 ## Installation
 
 Pip:
